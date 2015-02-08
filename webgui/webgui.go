@@ -38,6 +38,17 @@ import (
 	"time"
 )
 
+const (
+	Temperature = iota
+	Low_battery
+	Overload
+	Inverter
+	Float
+	Bulk
+	Absorption
+	Mains
+)
+
 var leds = map[int]string{
 	0: "Temperature",
 	1: "Low battery",
@@ -57,7 +68,7 @@ type WebGui struct {
 	template *template.Template
 }
 
-func NewWebGui(source datasource.DataSource, pollRate time.Duration) *WebGui {
+func NewWebGui(source datasource.DataSource, pollRate time.Duration, batteryCapacity float64) *WebGui {
 	wg := new(WebGui)
 	wg.source = source
 	wg.reqChan = make(chan *statusError)
@@ -68,7 +79,7 @@ func NewWebGui(source datasource.DataSource, pollRate time.Duration) *WebGui {
 	if err != nil {
 		panic(err)
 	}
-	go wg.dataPoll(pollRate)
+	go wg.dataPoll(pollRate, batteryCapacity)
 	return wg
 }
 
@@ -89,6 +100,7 @@ type TemplateInput struct {
 	BatVoltage string
 	BatCurrent string
 	BatPower   string
+	BatCharge  string
 
 	InFreq string
 
@@ -126,6 +138,7 @@ func buildTemplateInput(statusErr *statusError) *TemplateInput {
 		BatCurrent: fmt.Sprintf("%.3f", status.BatCurrent),
 		BatVoltage: fmt.Sprintf("%.3f", status.BatVoltage),
 		BatPower:   fmt.Sprintf("%.3f", status.BatVoltage*status.BatCurrent),
+		BatCharge:  fmt.Sprintf("%.3f", statusErr.chargeLevel),
 	}
 	for i := 7; i >= 0; i-- {
 		if status.Leds[i] == 1 {
@@ -140,14 +153,16 @@ func (w *WebGui) Stop() {
 }
 
 type statusError struct {
-	status datasource.MultiplusStatus
-	err    error
+	status      datasource.MultiplusStatus
+	chargeLevel float64
+	err         error
 }
 
 // dataPoll will issue a request for a new status every pollRate. It will send its currently stored status
 // to respChan if anything reads from it.
-func (w *WebGui) dataPoll(pollRate time.Duration) {
+func (w *WebGui) dataPoll(pollRate time.Duration, batteryCapacity float64) {
 	ticker := time.NewTicker(pollRate)
+	tracker := NewChargeTracker(batteryCapacity)
 	var statusErr statusError
 	go w.getStatus()
 	gettingStatus := true
@@ -164,6 +179,11 @@ func (w *WebGui) dataPoll(pollRate time.Duration) {
 			} else {
 				statusErr.status = s.status
 				statusErr.err = nil
+				tracker.Update(s.status.BatCurrent)
+				if s.status.Leds[Float] == 1 {
+					tracker.Reset()
+				}
+				statusErr.chargeLevel = tracker.CurrentLevel()
 			}
 			gettingStatus = false
 		case w.respChan <- statusErr:

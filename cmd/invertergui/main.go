@@ -44,7 +44,7 @@ func main() {
 	flag.Parse()
 
 	source := datasource.NewJSONSource(*url)
-	gui := webgui.NewWebGui(source, 10*time.Second)
+	gui := webgui.NewWebGui(source, 10*time.Second, 100)
 	http.Handle("/", gui)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

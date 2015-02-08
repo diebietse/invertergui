@@ -65,6 +65,7 @@ var htmlTemplate string = `<html>
 		<dt> Battery Current: {{.BatCurrent}} A</dt>
 		<dt> Battery Voltage: {{.BatVoltage}} V</dt>
 		<dt> Battery Power: {{.BatPower}} W</dt>
+		<dt> Battery Charge: {{.BatCharge}} A h</dt>
 	</dl>
 </body>
 </html>`
