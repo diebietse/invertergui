@@ -46,5 +46,7 @@ func main() {
 	source := datasource.NewJSONSource(*url)
 	gui := webgui.NewWebGui(source, 10*time.Second, 100)
 	http.Handle("/", gui)
+	http.Handle("/munin", http.HandlerFunc(gui.ServeMuninHTTP))
+	http.Handle("/muninconfig", http.HandlerFunc(gui.ServeMuninConfigHTTP))
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

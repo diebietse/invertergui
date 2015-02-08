@@ -94,6 +94,7 @@ var templateInputTests = []templateTest{
 			BatCurrent: "-10.000",
 			BatPower:   "-250.000",
 			InFreq:     "50.000",
+			BatCharge:  "0.000",
 			Leds:       []string{"Mains", "Float"}},
 	},
 }

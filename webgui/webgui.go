@@ -66,6 +66,8 @@ type WebGui struct {
 	respChan chan statusError
 	stopChan chan struct{}
 	template *template.Template
+
+	muninRespChan chan muninData
 }
 
 func NewWebGui(source datasource.DataSource, pollRate time.Duration, batteryCapacity float64) *WebGui {
@@ -73,6 +75,7 @@ func NewWebGui(source datasource.DataSource, pollRate time.Duration, batteryCapa
 	wg.source = source
 	wg.reqChan = make(chan *statusError)
 	wg.respChan = make(chan statusError)
+	wg.muninRespChan = make(chan muninData)
 	wg.stopChan = make(chan struct{})
 	var err error
 	wg.template, err = template.New("thegui").Parse(htmlTemplate)
@@ -164,6 +167,7 @@ func (w *WebGui) dataPoll(pollRate time.Duration, batteryCapacity float64) {
 	ticker := time.NewTicker(pollRate)
 	tracker := NewChargeTracker(batteryCapacity)
 	var statusErr statusError
+	var muninValues muninData
 	go w.getStatus()
 	gettingStatus := true
 	for {
@@ -184,9 +188,12 @@ func (w *WebGui) dataPoll(pollRate time.Duration, batteryCapacity float64) {
 					tracker.Reset()
 				}
 				statusErr.chargeLevel = tracker.CurrentLevel()
+				calcMuninValues(&muninValues, &statusErr)
 			}
 			gettingStatus = false
 		case w.respChan <- statusErr:
+		case w.muninRespChan <- muninValues:
+			zeroMuninValues(&muninValues)
 		case <-w.stopChan:
 			return
 		}
