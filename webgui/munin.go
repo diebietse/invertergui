@@ -75,7 +75,7 @@ func (w *WebGui) ServeMuninHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	_, err := rw.Write([]byte(outputBuf.String()))
 	if err != nil {
-		fmt.Print("%v\n", err)
+		fmt.Printf("%v\n", err)
 	}
 }
 
@@ -161,7 +161,7 @@ freq.label Input frequency (Hz)
 
 	_, err := rw.Write([]byte(output))
 	if err != nil {
-		fmt.Print("%v\n", err)
+		fmt.Printf("%v\n", err)
 	}
 }
 
