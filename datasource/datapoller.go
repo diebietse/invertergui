@@ -28,26 +28,72 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package main
+package datasource
 
 import (
-	"flag"
-	"github.com/hpdvanwyk/invertergui/datasource"
-	"github.com/hpdvanwyk/invertergui/webgui"
-	"log"
-	"net/http"
+	"sync"
 	"time"
 )
 
-func main() {
-	url := flag.String("url", "http://localhost:9005", "The url of the multiplus JSON interface.")
-	flag.Parse()
+type DataPoller interface {
+	C() chan *Status
+	Stop()
+}
 
-	source := datasource.NewJSONSource(*url)
-	poller := datasource.NewDataPoller(source, 10*time.Second)
-	gui := webgui.NewWebGui(poller, 100)
-	http.Handle("/", gui)
-	http.Handle("/munin", http.HandlerFunc(gui.ServeMuninHTTP))
-	http.Handle("/muninconfig", http.HandlerFunc(gui.ServeMuninConfigHTTP))
-	log.Fatal(http.ListenAndServe(":8080", nil))
+type Status struct {
+	MpStatus MultiplusStatus
+	Time     time.Time
+	Err      error
+}
+
+type poller struct {
+	source     DataSource
+	rate       time.Duration
+	statusChan chan *Status
+	stop       chan struct{}
+	wg         sync.WaitGroup
+}
+
+func NewDataPoller(source DataSource, pollRate time.Duration) DataPoller {
+	this := &poller{
+		source:     source,
+		rate:       pollRate,
+		statusChan: make(chan *Status),
+		stop:       make(chan struct{}),
+	}
+	this.wg.Add(1)
+	go this.poll()
+	return this
+}
+
+func (this *poller) C() chan *Status {
+	return this.statusChan
+}
+
+func (this *poller) Stop() {
+	close(this.stop)
+	this.wg.Wait()
+}
+
+func (this *poller) poll() {
+	ticker := time.NewTicker(this.rate)
+	this.doPoll()
+	for {
+		select {
+		case <-ticker.C:
+			this.doPoll()
+		case <-this.stop:
+			ticker.Stop()
+			close(this.statusChan)
+			this.wg.Done()
+			return
+		}
+	}
+}
+
+func (this *poller) doPoll() {
+	tmp := new(Status)
+	tmp.Err = this.source.GetData(&tmp.MpStatus)
+	tmp.Time = time.Now()
+	this.statusChan <- tmp
 }

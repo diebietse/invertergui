@@ -28,26 +28,64 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package main
+package datasource
 
 import (
-	"flag"
-	"github.com/hpdvanwyk/invertergui/datasource"
-	"github.com/hpdvanwyk/invertergui/webgui"
-	"log"
-	"net/http"
+	"errors"
+	"testing"
 	"time"
 )
 
-func main() {
-	url := flag.String("url", "http://localhost:9005", "The url of the multiplus JSON interface.")
-	flag.Parse()
+type mockDataSource struct {
+	currentMock int
+	shouldBreak bool
+}
 
-	source := datasource.NewJSONSource(*url)
-	poller := datasource.NewDataPoller(source, 10*time.Second)
-	gui := webgui.NewWebGui(poller, 100)
-	http.Handle("/", gui)
-	http.Handle("/munin", http.HandlerFunc(gui.ServeMuninHTTP))
-	http.Handle("/muninconfig", http.HandlerFunc(gui.ServeMuninConfigHTTP))
-	log.Fatal(http.ListenAndServe(":8080", nil))
+func (this *mockDataSource) GetData(data *MultiplusStatus) error {
+	if this.shouldBreak {
+		return errors.New("Do not be alarmed. This is only a test.")
+	}
+	data.BatCurrent = float64(this.currentMock)
+	this.currentMock++
+	return nil
+}
+
+func TestOnePoll(t *testing.T) {
+	poller := NewDataPoller(&mockDataSource{currentMock: 100}, 1*time.Millisecond)
+	statChan := poller.C()
+	status := <-statChan
+	if status.MpStatus.BatCurrent != 100 {
+		t.Errorf("Incorrect data passed from data source.")
+	}
+	if status.Time.IsZero() {
+		t.Errorf("Time not set.")
+	}
+	poller.Stop()
+}
+
+func TestMultiplePolls(t *testing.T) {
+	poller := NewDataPoller(&mockDataSource{currentMock: 100}, 1*time.Millisecond)
+	statChan := poller.C()
+	expect := 100
+	for i := 0; i < 100; i++ {
+		status := <-statChan
+		if status.MpStatus.BatCurrent != float64(expect) {
+			t.Errorf("Incorrect data passed from data source.")
+		}
+		expect++
+		if status.Time.IsZero() {
+			t.Errorf("Time not set.")
+		}
+	}
+	poller.Stop()
+}
+
+func TestError(t *testing.T) {
+	poller := NewDataPoller(&mockDataSource{shouldBreak: true}, 1*time.Millisecond)
+	statChan := poller.C()
+	status := <-statChan
+	if status.Err == nil {
+		t.Errorf("Error not correctly propagated.")
+	}
+	poller.Stop()
 }

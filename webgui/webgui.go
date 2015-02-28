@@ -35,7 +35,7 @@ import (
 	"github.com/hpdvanwyk/invertergui/datasource"
 	"html/template"
 	"net/http"
-	"time"
+	"sync"
 )
 
 const (
@@ -61,29 +61,29 @@ var leds = map[int]string{
 }
 
 type WebGui struct {
-	source   datasource.DataSource
-	reqChan  chan *statusError
-	respChan chan statusError
+	respChan chan statusProcessed
 	stopChan chan struct{}
 	template *template.Template
 
 	muninRespChan chan muninData
+	poller        datasource.DataPoller
+	wg            sync.WaitGroup
 }
 
-func NewWebGui(source datasource.DataSource, pollRate time.Duration, batteryCapacity float64) *WebGui {
-	wg := new(WebGui)
-	wg.source = source
-	wg.reqChan = make(chan *statusError)
-	wg.respChan = make(chan statusError)
-	wg.muninRespChan = make(chan muninData)
-	wg.stopChan = make(chan struct{})
+func NewWebGui(source datasource.DataPoller, batteryCapacity float64) *WebGui {
+	w := new(WebGui)
+	w.respChan = make(chan statusProcessed)
+	w.muninRespChan = make(chan muninData)
+	w.stopChan = make(chan struct{})
 	var err error
-	wg.template, err = template.New("thegui").Parse(htmlTemplate)
+	w.template, err = template.New("thegui").Parse(htmlTemplate)
 	if err != nil {
 		panic(err)
 	}
-	go wg.dataPoll(pollRate, batteryCapacity)
-	return wg
+	w.poller = source
+	w.wg.Add(1)
+	go w.dataPoll(batteryCapacity)
+	return w
 }
 
 //TemplateInput is exported to be used as an argument to the http template package.
@@ -121,7 +121,7 @@ func (w *WebGui) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func buildTemplateInput(statusErr *statusError) *TemplateInput {
+func buildTemplateInput(statusErr *statusProcessed) *TemplateInput {
 	status := statusErr.status
 	outPower := status.OutVoltage * status.OutCurrent
 	inPower := status.InCurrent * status.InVoltage
@@ -143,65 +143,56 @@ func buildTemplateInput(statusErr *statusError) *TemplateInput {
 		BatPower:   fmt.Sprintf("%.3f", status.BatVoltage*status.BatCurrent),
 		BatCharge:  fmt.Sprintf("%.3f", statusErr.chargeLevel),
 	}
-	for i := 7; i >= 0; i-- {
-		if status.Leds[i] == 1 {
-			tmpInput.Leds = append(tmpInput.Leds, leds[i])
+	if len(status.Leds) == 8 {
+		for i := 7; i >= 0; i-- {
+			if status.Leds[i] == 1 {
+				tmpInput.Leds = append(tmpInput.Leds, leds[i])
+			}
 		}
 	}
 	return tmpInput
 }
 
 func (w *WebGui) Stop() {
+	w.poller.Stop()
 	close(w.stopChan)
+	w.wg.Wait()
 }
 
-type statusError struct {
+type statusProcessed struct {
 	status      datasource.MultiplusStatus
 	chargeLevel float64
 	err         error
 }
 
-// dataPoll will issue a request for a new status every pollRate. It will send its currently stored status
+// dataPoll waits for data from the w.poller channel. It will send its currently stored status
 // to respChan if anything reads from it.
-func (w *WebGui) dataPoll(pollRate time.Duration, batteryCapacity float64) {
-	ticker := time.NewTicker(pollRate)
+func (w *WebGui) dataPoll(batteryCapacity float64) {
 	tracker := NewChargeTracker(batteryCapacity)
-	var statusErr statusError
+	pollChan := w.poller.C()
+	var statusP statusProcessed
 	var muninValues muninData
-	go w.getStatus()
-	gettingStatus := true
 	for {
 		select {
-		case <-ticker.C:
-			if gettingStatus == false {
-				go w.getStatus()
-				gettingStatus = true
-			}
-		case s := <-w.reqChan:
-			if s.err != nil {
-				statusErr.err = s.err
+		case s := <-pollChan:
+			if s.Err != nil {
+				statusP.err = s.Err
 			} else {
-				statusErr.status = s.status
-				statusErr.err = nil
-				tracker.Update(s.status.BatCurrent)
-				if s.status.Leds[Float] == 1 {
+				statusP.status = s.MpStatus
+				statusP.err = nil
+				tracker.Update(s.MpStatus.BatCurrent)
+				if s.MpStatus.Leds[Float] == 1 {
 					tracker.Reset()
 				}
-				statusErr.chargeLevel = tracker.CurrentLevel()
-				calcMuninValues(&muninValues, &statusErr)
+				statusP.chargeLevel = tracker.CurrentLevel()
+				calcMuninValues(&muninValues, &statusP)
 			}
-			gettingStatus = false
-		case w.respChan <- statusErr:
+		case w.respChan <- statusP:
 		case w.muninRespChan <- muninValues:
 			zeroMuninValues(&muninValues)
 		case <-w.stopChan:
+			w.wg.Done()
 			return
 		}
 	}
-}
-
-func (w *WebGui) getStatus() {
-	statusErr := new(statusError)
-	statusErr.err = w.source.GetData(&statusErr.status)
-	w.reqChan <- statusErr
 }

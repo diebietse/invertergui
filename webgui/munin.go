@@ -37,7 +37,7 @@ import (
 )
 
 type muninData struct {
-	statusError  statusError
+	statusP      statusProcessed
 	timesUpdated int
 }
 
@@ -50,8 +50,8 @@ func (w *WebGui) ServeMuninHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 	calcMuninAverages(&muninDat)
 
-	statusErr := &muninDat.statusError
-	tmpInput := buildTemplateInput(statusErr)
+	statusP := &muninDat.statusP
+	tmpInput := buildTemplateInput(statusP)
 	outputBuf := &bytes.Buffer{}
 	fmt.Fprintf(outputBuf, "multigraph in_batvolt\n")
 	fmt.Fprintf(outputBuf, "volt.value %s\n", tmpInput.BatVoltage)
@@ -166,9 +166,9 @@ freq.label Input frequency (Hz)
 }
 
 //Munin only samples once every 5 minutes so averages have to be calculated for some values.
-func calcMuninValues(muninDat *muninData, newStatus *statusError) {
+func calcMuninValues(muninDat *muninData, newStatus *statusProcessed) {
 	muninDat.timesUpdated += 1
-	muninVal := &muninDat.statusError
+	muninVal := &muninDat.statusP
 	muninVal.status.OutCurrent += newStatus.status.OutCurrent
 	muninVal.status.InCurrent += newStatus.status.InCurrent
 	muninVal.status.BatCurrent += newStatus.status.BatCurrent
@@ -184,7 +184,7 @@ func calcMuninValues(muninDat *muninData, newStatus *statusError) {
 }
 
 func calcMuninAverages(muninDat *muninData) {
-	muninVal := &muninDat.statusError
+	muninVal := &muninDat.statusP
 	muninVal.status.OutCurrent /= float64(muninDat.timesUpdated)
 	muninVal.status.InCurrent /= float64(muninDat.timesUpdated)
 	muninVal.status.BatCurrent /= float64(muninDat.timesUpdated)
@@ -196,7 +196,7 @@ func calcMuninAverages(muninDat *muninData) {
 
 func zeroMuninValues(muninDat *muninData) {
 	muninDat.timesUpdated = 0
-	muninVal := &muninDat.statusError
+	muninVal := &muninDat.statusP
 	muninVal.status.OutCurrent = 0
 	muninVal.status.InCurrent = 0
 	muninVal.status.BatCurrent = 0

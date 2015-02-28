@@ -62,13 +62,13 @@ func TestWebGui(t *testing.T) {
 }
 
 type templateTest struct {
-	input  *statusError
+	input  *statusProcessed
 	output *TemplateInput
 }
 
 var templateInputTests = []templateTest{
 	{
-		input: &statusError{
+		input: &statusProcessed{
 			status: datasource.MultiplusStatus{
 				OutCurrent: 2.0,
 				InCurrent:  2.3,
