@@ -180,7 +180,7 @@ func (w *WebGui) dataPoll(batteryCapacity float64) {
 			} else {
 				statusP.status = s.MpStatus
 				statusP.err = nil
-				tracker.Update(s.MpStatus.BatCurrent)
+				tracker.Update(s.MpStatus.BatCurrent, s.Time)
 				if s.MpStatus.Leds[Float] == 1 {
 					tracker.Reset()
 				}

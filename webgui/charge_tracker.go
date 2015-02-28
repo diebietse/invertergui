@@ -49,8 +49,8 @@ func NewChargeTracker(fullLevel float64) *ChargeTracker {
 	}
 }
 
-func (c *ChargeTracker) Update(amp float64) {
-	newNow := time.Now()
+func (c *ChargeTracker) Update(amp float64, timestamp time.Time) {
+	newNow := timestamp
 	elapsed := newNow.Sub(c.lastUpdate).Hours()
 	c.lastUpdate = newNow
 	c.currentLevel -= elapsed * amp
