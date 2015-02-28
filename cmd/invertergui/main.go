@@ -41,11 +41,12 @@ import (
 
 func main() {
 	url := flag.String("url", "http://localhost:9005", "The url of the multiplus JSON interface.")
+	capacity := flag.Float64("capacity", 100, "The capacity of the batteries in the system.")
 	flag.Parse()
 
 	source := datasource.NewJSONSource(*url)
 	poller := datasource.NewDataPoller(source, 10*time.Second)
-	gui := webgui.NewWebGui(poller, 100)
+	gui := webgui.NewWebGui(poller, *capacity)
 	http.Handle("/", gui)
 	http.Handle("/munin", http.HandlerFunc(gui.ServeMuninHTTP))
 	http.Handle("/muninconfig", http.HandlerFunc(gui.ServeMuninConfigHTTP))
