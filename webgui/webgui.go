@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015, Hendrik van Wyk
+Copyright (c) 2015, 2017 Hendrik van Wyk
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -68,6 +68,8 @@ type WebGui struct {
 	muninRespChan chan muninData
 	poller        datasource.DataPoller
 	wg            sync.WaitGroup
+
+	pu *prometheusUpdater
 }
 
 func NewWebGui(source datasource.DataPoller, batteryCapacity float64) *WebGui {
@@ -81,6 +83,8 @@ func NewWebGui(source datasource.DataPoller, batteryCapacity float64) *WebGui {
 		panic(err)
 	}
 	w.poller = source
+	w.pu = newPrometheusUpdater()
+
 	w.wg.Add(1)
 	go w.dataPoll(batteryCapacity)
 	return w
@@ -186,6 +190,7 @@ func (w *WebGui) dataPoll(batteryCapacity float64) {
 				}
 				statusP.chargeLevel = tracker.CurrentLevel()
 				calcMuninValues(&muninValues, &statusP)
+				w.pu.updatePrometheus(&statusP)
 			}
 		case w.respChan <- statusP:
 		case w.muninRespChan <- muninValues:
