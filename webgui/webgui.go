@@ -91,8 +91,7 @@ func NewWebGui(source datasource.DataPoller, batteryCapacity float64) *WebGui {
 	return w
 }
 
-//TemplateInput is exported to be used as an argument to the http template package.
-type TemplateInput struct {
+type templateInput struct {
 	Error error
 
 	Date string
@@ -128,12 +127,12 @@ func (w *WebGui) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func buildTemplateInput(statusErr *statusProcessed) *TemplateInput {
+func buildTemplateInput(statusErr *statusProcessed) *templateInput {
 	status := statusErr.status
 	outPower := status.OutVoltage * status.OutCurrent
 	inPower := status.InCurrent * status.InVoltage
 
-	tmpInput := &TemplateInput{
+	tmpInput := &templateInput{
 		Error:      statusErr.err,
 		Date:       time.Now().Format(time.RFC1123Z),
 		OutCurrent: fmt.Sprintf("%.3f", status.OutCurrent),
