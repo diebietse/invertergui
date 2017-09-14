@@ -22,6 +22,7 @@ type mk2Ser struct {
 	sc     []scaling
 	scN    int
 	run    chan struct{}
+	locked bool
 	sync.RWMutex
 }
 
@@ -31,6 +32,7 @@ func NewMk2Connection(dev io.ReadWriter) (Mk2If, error) {
 	mk2.info = &Mk2Info{}
 	mk2.report = &Mk2Info{}
 	mk2.scN = 0
+	mk2.locked = false
 	mk2.sc = make([]scaling, 0)
 	mk2.setTarget()
 	mk2.run = make(chan struct{})
@@ -40,31 +42,43 @@ func NewMk2Connection(dev io.ReadWriter) (Mk2If, error) {
 
 // Locks to incoming frame.
 func (mk2 *mk2Ser) frameLock() {
-	buffer := make([]byte, 1)
+
 	frame := make([]byte, 256)
 	var size byte
-	var l int
 	for {
 		select {
 		case <-mk2.run:
 			break
 		default:
-			size = buffer[0]
-			_, err := mk2.p.Read(buffer)
-			if err != nil {
-				mk2.addError(fmt.Errorf("Read error: %v", err))
-				time.Sleep(1 * time.Second)
+			if mk2.locked {
+				size = mk2.readByte()
+				l, err := io.ReadFull(mk2.p, frame[0:int(size)+1])
+				if err != nil {
+					mk2.addError(fmt.Errorf("Read Error: %v", err))
+					mk2.locked = false
+				} else if l != int(size)+1 {
+					mk2.addError(errors.New("Read Length Error"))
+					mk2.locked = false
+				} else {
+					mk2.handleFrame(size, frame[0:int(size+1)])
+				}
 			} else {
-				if buffer[0] == 0xff || buffer[0] == 0x20 {
-					l, err = io.ReadFull(mk2.p, frame[0:int(size)])
+				tmp := mk2.readByte()
+				if tmp == 0xff || tmp == 0x20 {
+					l, err := io.ReadFull(mk2.p, frame[0:int(size)])
 					if err != nil {
 						mk2.addError(fmt.Errorf("Read Error: %v", err))
+						time.Sleep(1 * time.Second)
 					} else if l != int(size) {
 						mk2.addError(errors.New("Read Length Error"))
 					} else {
-						mk2.handleFrame(size, buffer[0], frame[0:int(size)])
+						if checkChecksum(size, tmp, frame[0:int(size)]) {
+							mk2.locked = true
+							log.Printf("Locked")
+						}
 					}
 				}
+				size = tmp
 			}
 		}
 	}
@@ -83,52 +97,64 @@ func (mk2 *mk2Ser) GetMk2Info() *Mk2Info {
 	return mk2.report
 }
 
+func (mk2 *mk2Ser) readByte() byte {
+	buffer := make([]byte, 1)
+	_, err := io.ReadFull(mk2.p, buffer)
+	if err != nil {
+		mk2.addError(fmt.Errorf("Read error: %v", err))
+		return 0
+	}
+	return buffer[0]
+}
+
 // Adds error to error slice.
 func (mk2 *mk2Ser) addError(err error) {
 	if mk2.info.Errors == nil {
 		mk2.info.Errors = make([]error, 0)
 	}
 	mk2.info.Errors = append(mk2.info.Errors, err)
+	mk2.info.Valid = false
 }
 
 // Updates report.
 func (mk2 *mk2Ser) updateReport() {
 	mk2.Lock()
 	defer mk2.Unlock()
-	mk2.info.Valid = true
 	*mk2.report = *mk2.info
 	mk2.info.Errors = nil
 }
 
 // Checks for valid frame and chooses decoding.
-func (mk *mk2Ser) handleFrame(l, t byte, frame []byte) {
-	if checkChecksum(l, t, frame) {
-		switch t {
+func (mk2 *mk2Ser) handleFrame(l byte, frame []byte) {
+	if checkChecksum(l, frame[0], frame[1:]) {
+		switch frame[0] {
 		case 0xff:
-			switch frame[0] {
+			switch frame[1] {
 			case 0x56: // V
-				mk.versionDecode(frame[1:])
+				mk2.versionDecode(frame[2:])
 			case 0x57:
-				switch frame[1] {
+				switch frame[2] {
 				case 0x8e:
-					mk.scaleDecode(frame[1:])
+					mk2.scaleDecode(frame[2:])
 				case 0x85:
-					mk.stateDecode(frame[1:])
+					mk2.stateDecode(frame[2:])
 				}
 
 			case 0x4C: // L
-				mk.ledDecode(frame[1:])
+				mk2.ledDecode(frame[2:])
 			}
 
 		case 0x20:
-			switch frame[4] {
+			switch frame[5] {
 			case 0x0C:
-				mk.dcDecode(frame)
+				mk2.dcDecode(frame[1:])
 			case 0x08:
-				mk.acDecode(frame)
+				mk2.acDecode(frame[1:])
 			}
-
 		}
+	} else {
+		log.Printf("Failed")
+		mk2.locked = false
 	}
 }
 
@@ -176,6 +202,7 @@ func (mk *mk2Ser) scaleDecode(frame []byte) {
 // Decode the version number
 func (mk *mk2Ser) versionDecode(frame []byte) {
 	mk.info.Version = 0
+	mk.info.Valid = true
 	for i := 0; i < 4; i++ {
 		mk.info.Version += uint32(frame[i]) << uint(i) * 8
 	}
