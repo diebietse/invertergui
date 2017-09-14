@@ -36,6 +36,7 @@ import (
 	"html/template"
 	"net/http"
 	"sync"
+	"time"
 )
 
 const (
@@ -94,6 +95,8 @@ func NewWebGui(source datasource.DataPoller, batteryCapacity float64) *WebGui {
 type TemplateInput struct {
 	Error error
 
+	Date string
+
 	OutCurrent string
 	OutVoltage string
 	OutPower   string
@@ -132,6 +135,7 @@ func buildTemplateInput(statusErr *statusProcessed) *TemplateInput {
 
 	tmpInput := &TemplateInput{
 		Error:      statusErr.err,
+		Date:       time.Now().Format(time.RFC1123Z),
 		OutCurrent: fmt.Sprintf("%.3f", status.OutCurrent),
 		OutVoltage: fmt.Sprintf("%.3f", status.OutVoltage),
 		OutPower:   fmt.Sprintf("%.3f", outPower),
