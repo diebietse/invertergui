@@ -23,9 +23,10 @@ var LedNames = map[int]string{
 }
 
 type Mk2Info struct {
+	// Will be marked as false if an error is detected.
 	Valid bool
 
-	Version    uint32
+	Version uint32
 
 	BatVoltage float64
 	// Positive current == charging
