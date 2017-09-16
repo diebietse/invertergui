@@ -43,6 +43,7 @@ import (
 func main() {
 	url := flag.String("url", "http://localhost:9005", "The url of the multiplus JSON interface.")
 	capacity := flag.Float64("capacity", 100, "The capacity of the batteries in the system.")
+	addr := flag.String("addr", ":8080", "TCP address to listen on.")
 	flag.Parse()
 
 	source := datasource.NewJSONSource(*url)
@@ -52,5 +53,5 @@ func main() {
 	http.Handle("/munin", http.HandlerFunc(gui.ServeMuninHTTP))
 	http.Handle("/muninconfig", http.HandlerFunc(gui.ServeMuninConfigHTTP))
 	http.Handle("/metrics", promhttp.Handler())
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(*addr, nil))
 }
