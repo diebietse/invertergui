@@ -25,7 +25,7 @@ type mk2Ser struct {
 	locked bool
 	sync.RWMutex
 	infochan chan *Mk2Info
-	wg sync.WaitGroup
+	wg       sync.WaitGroup
 }
 
 func NewMk2Connection(dev io.ReadWriter) (Mk2If, error) {
