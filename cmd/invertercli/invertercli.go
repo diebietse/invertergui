@@ -9,7 +9,6 @@ import (
 	"log"
 	"net"
 	"sync"
-	"time"
 )
 
 // Basic CLI to serve as example lib usage
@@ -49,13 +48,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	c := mk2.C()
 	wg.Add(1)
 	for {
-		tmp := mk2.GetMk2Info()
+		tmp := <-c
 		if tmp.Valid {
 			PrintInfo(tmp)
 		}
-		time.Sleep(2 * time.Second)
 	}
 	log.Printf("Closing connection")
 	wg.Wait()

@@ -24,6 +24,7 @@ type mk2Ser struct {
 	run    chan struct{}
 	locked bool
 	sync.RWMutex
+	infochan chan *Mk2Info
 }
 
 func NewMk2Connection(dev io.ReadWriter) (Mk2If, error) {
@@ -36,6 +37,7 @@ func NewMk2Connection(dev io.ReadWriter) (Mk2If, error) {
 	mk2.sc = make([]scaling, 0)
 	mk2.setTarget()
 	mk2.run = make(chan struct{})
+	mk2.infochan = make(chan *Mk2Info)
 	go mk2.frameLock()
 	return mk2, nil
 }
@@ -97,6 +99,10 @@ func (mk2 *mk2Ser) GetMk2Info() *Mk2Info {
 	return mk2.report
 }
 
+func (mk2 *mk2Ser) C() chan *Mk2Info {
+	return mk2.infochan
+}
+
 func (mk2 *mk2Ser) readByte() byte {
 	buffer := make([]byte, 1)
 	_, err := io.ReadFull(mk2.p, buffer)
@@ -121,6 +127,10 @@ func (mk2 *mk2Ser) updateReport() {
 	mk2.Lock()
 	defer mk2.Unlock()
 	mk2.report = mk2.info
+	select {
+	case mk2.infochan <- mk2.info:
+	default:
+	}
 	mk2.info = &Mk2Info{}
 }
 

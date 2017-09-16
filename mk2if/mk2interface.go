@@ -55,5 +55,6 @@ type Mk2Info struct {
 
 type Mk2If interface {
 	GetMk2Info() *Mk2Info
+	C() chan *Mk2Info
 	Close()
 }
