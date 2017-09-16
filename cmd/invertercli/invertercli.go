@@ -63,8 +63,8 @@ func main() {
 func PrintInfo(info *mk2if.Mk2Info) {
 	out := fmt.Sprintf("Version: %v\n", info.Version)
 	out += fmt.Sprintf("Bat Volt: %.2fV Bat Cur: %.2fA \n", info.BatVoltage, info.BatCurrent)
-	out += fmt.Sprintf("In Volt: %.2fV In Cur: %.2fA In Freq %.1fHz\n", info.InVoltage, info.InCurrent, info.InFrequency)
-	out += fmt.Sprintf("Out Volt: %.2fV Out Cur: %.2fA Out Freq %.1fHz\n", info.OutVoltage, info.OutCurrent, info.OutFrequency)
+	out += fmt.Sprintf("In Volt: %.2fV In Cur: %.2fA In Freq %.2fHz\n", info.InVoltage, info.InCurrent, info.InFrequency)
+	out += fmt.Sprintf("Out Volt: %.2fV Out Cur: %.2fA Out Freq %.2fHz\n", info.OutVoltage, info.OutCurrent, info.OutFrequency)
 	out += fmt.Sprintf("In Power %.2fW Out Power %.2fW\n", info.InVoltage*info.InCurrent, info.OutVoltage*info.OutCurrent)
 	out += fmt.Sprintf("Charge State: %.2f%%\n", info.ChargeState*100)
 	out += "LEDs on:"
