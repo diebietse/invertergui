@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015, Hendrik van Wyk
+Copyright (c) 2015, 2017 Hendrik van Wyk
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,7 @@ import (
 	"flag"
 	"github.com/hpdvanwyk/invertergui/datasource"
 	"github.com/hpdvanwyk/invertergui/webgui"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
 	"time"
@@ -50,5 +51,6 @@ func main() {
 	http.Handle("/", gui)
 	http.Handle("/munin", http.HandlerFunc(gui.ServeMuninHTTP))
 	http.Handle("/muninconfig", http.HandlerFunc(gui.ServeMuninConfigHTTP))
+	http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
