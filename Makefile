@@ -30,6 +30,7 @@
 
 install:
 	go install ./cmd/invertergui/
+	go install ./cmd/invertercli/
 
 all: install gofmt test
 
