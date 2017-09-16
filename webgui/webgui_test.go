@@ -34,6 +34,7 @@ import (
 	"github.com/hpdvanwyk/invertergui/datasource"
 	"reflect"
 	"testing"
+	"time"
 )
 
 type mockSource struct {
@@ -63,9 +64,10 @@ func TestWebGui(t *testing.T) {
 
 type templateTest struct {
 	input  *statusProcessed
-	output *TemplateInput
+	output *templateInput
 }
 
+var fakenow = time.Date(2017, 1, 2, 3, 4, 5, 6, time.UTC)
 var templateInputTests = []templateTest{
 	{
 		input: &statusProcessed{
@@ -81,8 +83,9 @@ var templateInputTests = []templateTest{
 				Leds:       []int{0, 0, 0, 0, 1, 0, 0, 1}},
 			err: nil,
 		},
-		output: &TemplateInput{
+		output: &templateInput{
 			Error:      nil,
+			Date:       fakenow.Format(time.RFC1123Z),
 			OutCurrent: "2.000",
 			OutVoltage: "230.000",
 			OutPower:   "460.000",
@@ -101,7 +104,7 @@ var templateInputTests = []templateTest{
 
 func TestTemplateInput(t *testing.T) {
 	for i := range templateInputTests {
-		templateInput := buildTemplateInput(templateInputTests[i].input)
+		templateInput := buildTemplateInput(templateInputTests[i].input, fakenow)
 		if !reflect.DeepEqual(templateInput, templateInputTests[i].output) {
 			t.Errorf("buildTemplateInput not producing expected results")
 		}

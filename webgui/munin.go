@@ -34,6 +34,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 type muninData struct {
@@ -51,7 +52,7 @@ func (w *WebGui) ServeMuninHTTP(rw http.ResponseWriter, r *http.Request) {
 	calcMuninAverages(&muninDat)
 
 	statusP := &muninDat.statusP
-	tmpInput := buildTemplateInput(statusP)
+	tmpInput := buildTemplateInput(statusP, time.Now())
 	outputBuf := &bytes.Buffer{}
 	fmt.Fprintf(outputBuf, "multigraph in_batvolt\n")
 	fmt.Fprintf(outputBuf, "volt.value %s\n", tmpInput.BatVoltage)

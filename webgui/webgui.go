@@ -119,7 +119,7 @@ type templateInput struct {
 func (w *WebGui) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	statusErr := <-w.respChan
 
-	tmpInput := buildTemplateInput(&statusErr)
+	tmpInput := buildTemplateInput(&statusErr, time.Now())
 
 	err := w.template.Execute(rw, tmpInput)
 	if err != nil {
@@ -127,14 +127,14 @@ func (w *WebGui) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func buildTemplateInput(statusErr *statusProcessed) *templateInput {
+func buildTemplateInput(statusErr *statusProcessed, now time.Time) *templateInput {
 	status := statusErr.status
 	outPower := status.OutVoltage * status.OutCurrent
 	inPower := status.InCurrent * status.InVoltage
 
 	tmpInput := &templateInput{
 		Error:      statusErr.err,
-		Date:       time.Now().Format(time.RFC1123Z),
+		Date:       now.Format(time.RFC1123Z),
 		OutCurrent: fmt.Sprintf("%.3f", status.OutCurrent),
 		OutVoltage: fmt.Sprintf("%.3f", status.OutVoltage),
 		OutPower:   fmt.Sprintf("%.3f", outPower),
