@@ -32,23 +32,54 @@ package main
 
 import (
 	"flag"
-	"github.com/hpdvanwyk/invertergui/datasource"
+	"github.com/hpdvanwyk/invertergui/mk2if"
 	"github.com/hpdvanwyk/invertergui/webgui"
+	"github.com/mikepb/go-serial"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"io"
 	"log"
+	"net"
 	"net/http"
-	"time"
 )
 
 func main() {
-	url := flag.String("url", "http://localhost:9005", "The url of the multiplus JSON interface.")
-	capacity := flag.Float64("capacity", 100, "The capacity of the batteries in the system.")
 	addr := flag.String("addr", ":8080", "TCP address to listen on.")
+
+	tcp := flag.Bool("tcp", false, "Use TCP instead of TTY")
+	ip := flag.String("ip", "localhost:8139", "IP to connect when using tcp connection.")
+	dev := flag.String("dev", "/dev/ttyUSB0", "TTY device to use.")
 	flag.Parse()
 
-	source := datasource.NewJSONSource(*url)
-	poller := datasource.NewDataPoller(source, 10*time.Second)
-	gui := webgui.NewWebGui(poller, *capacity)
+	var p io.ReadWriteCloser
+	var err error
+	var tcpAddr *net.TCPAddr
+
+	if *tcp {
+		tcpAddr, err = net.ResolveTCPAddr("tcp", *ip)
+		if err != nil {
+			panic(err)
+		}
+		p, err = net.DialTCP("tcp", nil, tcpAddr)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		options := serial.RawOptions
+		options.BitRate = 2400
+		options.Mode = serial.MODE_READ_WRITE
+		p, err = options.Open(*dev)
+		if err != nil {
+			panic(err)
+		}
+	}
+	defer p.Close()
+	mk2, err := mk2if.NewMk2Connection(p)
+	defer mk2.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	gui := webgui.NewWebGui(mk2)
 	http.Handle("/", gui)
 	http.Handle("/munin", http.HandlerFunc(gui.ServeMuninHTTP))
 	http.Handle("/muninconfig", http.HandlerFunc(gui.ServeMuninConfigHTTP))

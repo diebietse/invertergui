@@ -32,50 +32,28 @@ package webgui
 
 import (
 	"fmt"
-	"github.com/hpdvanwyk/invertergui/datasource"
+	"github.com/hpdvanwyk/invertergui/mk2if"
 	"html/template"
 	"net/http"
 	"sync"
 	"time"
 )
 
-const (
-	Temperature = iota
-	Low_battery
-	Overload
-	Inverter
-	Float
-	Bulk
-	Absorption
-	Mains
-)
-
-var leds = map[int]string{
-	0: "Temperature",
-	1: "Low battery",
-	2: "Overload",
-	3: "Inverter",
-	4: "Float",
-	5: "Bulk",
-	6: "Absorption",
-	7: "Mains",
-}
-
 type WebGui struct {
-	respChan chan statusProcessed
+	respChan chan *mk2if.Mk2Info
 	stopChan chan struct{}
 	template *template.Template
 
 	muninRespChan chan muninData
-	poller        datasource.DataPoller
+	poller        mk2if.Mk2If
 	wg            sync.WaitGroup
 
 	pu *prometheusUpdater
 }
 
-func NewWebGui(source datasource.DataPoller, batteryCapacity float64) *WebGui {
+func NewWebGui(source mk2if.Mk2If) *WebGui {
 	w := new(WebGui)
-	w.respChan = make(chan statusProcessed)
+	w.respChan = make(chan *mk2if.Mk2Info)
 	w.muninRespChan = make(chan muninData)
 	w.stopChan = make(chan struct{})
 	var err error
@@ -87,12 +65,12 @@ func NewWebGui(source datasource.DataPoller, batteryCapacity float64) *WebGui {
 	w.pu = newPrometheusUpdater()
 
 	w.wg.Add(1)
-	go w.dataPoll(batteryCapacity)
+	go w.dataPoll()
 	return w
 }
 
 type templateInput struct {
-	Error error
+	Error []error
 
 	Date string
 
@@ -111,7 +89,8 @@ type templateInput struct {
 	BatPower   string
 	BatCharge  string
 
-	InFreq string
+	InFreq  string
+	OutFreq string
 
 	Leds []string
 }
@@ -119,7 +98,7 @@ type templateInput struct {
 func (w *WebGui) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	statusErr := <-w.respChan
 
-	tmpInput := buildTemplateInput(&statusErr, statusErr.timestamp)
+	tmpInput := buildTemplateInput(statusErr)
 
 	err := w.template.Execute(rw, tmpInput)
 	if err != nil {
@@ -127,20 +106,28 @@ func (w *WebGui) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func buildTemplateInput(statusErr *statusProcessed, now time.Time) *templateInput {
-	status := statusErr.status
+func ledName(nameInt int) string {
+	name, ok := mk2if.LedNames[nameInt]
+	if !ok {
+		return "Unknown led"
+	}
+	return name
+}
+
+func buildTemplateInput(status *mk2if.Mk2Info) *templateInput {
 	outPower := status.OutVoltage * status.OutCurrent
 	inPower := status.InCurrent * status.InVoltage
 
 	tmpInput := &templateInput{
-		Error:      statusErr.err,
-		Date:       now.Format(time.RFC1123Z),
+		Error:      status.Errors,
+		Date:       status.Timestamp.Format(time.RFC1123Z),
 		OutCurrent: fmt.Sprintf("%.3f", status.OutCurrent),
 		OutVoltage: fmt.Sprintf("%.3f", status.OutVoltage),
 		OutPower:   fmt.Sprintf("%.3f", outPower),
 		InCurrent:  fmt.Sprintf("%.3f", status.InCurrent),
 		InVoltage:  fmt.Sprintf("%.3f", status.InVoltage),
-		InFreq:     fmt.Sprintf("%.3f", status.InFreq),
+		InFreq:     fmt.Sprintf("%.3f", status.InFrequency),
+		OutFreq:    fmt.Sprintf("%.3f", status.OutFrequency),
 		InPower:    fmt.Sprintf("%.3f", inPower),
 
 		InMinOut: fmt.Sprintf("%.3f", inPower-outPower),
@@ -148,56 +135,33 @@ func buildTemplateInput(statusErr *statusProcessed, now time.Time) *templateInpu
 		BatCurrent: fmt.Sprintf("%.3f", status.BatCurrent),
 		BatVoltage: fmt.Sprintf("%.3f", status.BatVoltage),
 		BatPower:   fmt.Sprintf("%.3f", status.BatVoltage*status.BatCurrent),
-		BatCharge:  fmt.Sprintf("%.3f", statusErr.chargeLevel),
+		BatCharge:  fmt.Sprintf("%.3f", status.ChargeState*100),
 	}
-	if len(status.Leds) == 8 {
-		for i := 7; i >= 0; i-- {
-			if status.Leds[i] == 1 {
-				tmpInput.Leds = append(tmpInput.Leds, leds[i])
-			}
-		}
+	for i := range status.LedListOn {
+		tmpInput.Leds = append(tmpInput.Leds, ledName(status.LedListOn[i]))
 	}
 	return tmpInput
 }
 
 func (w *WebGui) Stop() {
-	w.poller.Stop()
 	close(w.stopChan)
 	w.wg.Wait()
 }
 
-type statusProcessed struct {
-	status      datasource.MultiplusStatus
-	chargeLevel float64
-	err         error
-	timestamp 		time.Time
-}
-
 // dataPoll waits for data from the w.poller channel. It will send its currently stored status
 // to respChan if anything reads from it.
-func (w *WebGui) dataPoll(batteryCapacity float64) {
-	tracker := NewChargeTracker(batteryCapacity)
+func (w *WebGui) dataPoll() {
 	pollChan := w.poller.C()
-	var statusP statusProcessed
 	var muninValues muninData
+	s := &mk2if.Mk2Info{}
 	for {
 		select {
-		case s := <-pollChan:
-			if s.Err != nil {
-				statusP.err = s.Err
-			} else {
-				statusP.status = s.MpStatus
-				statusP.err = nil
-				statusP.timestamp = s.Time
-				tracker.Update(s.MpStatus.BatCurrent, s.Time)
-				if s.MpStatus.Leds[Float] == 1 {
-					tracker.Reset()
-				}
-				statusP.chargeLevel = tracker.CurrentLevel()
-				calcMuninValues(&muninValues, &statusP)
-				w.pu.updatePrometheus(&statusP)
+		case s = <-pollChan:
+			if s.Valid {
+				calcMuninValues(&muninValues, s)
+				w.pu.updatePrometheus(s)
 			}
-		case w.respChan <- statusP:
+		case w.respChan <- s:
 		case w.muninRespChan <- muninValues:
 			zeroMuninValues(&muninValues)
 		case <-w.stopChan:
