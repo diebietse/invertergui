@@ -8,6 +8,9 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 // Basic CLI to serve as example lib usage
@@ -19,7 +22,7 @@ func main() {
 	dev := flag.String("dev", "/dev/ttyUSB0", "TTY device to use.")
 	flag.Parse()
 
-	var p io.ReadWriter
+	var p io.ReadWriteCloser
 	var err error
 	var tcpAddr *net.TCPAddr
 
@@ -29,9 +32,9 @@ func main() {
 			panic(err)
 		}
 		p, err = net.DialTCP("tcp", nil, tcpAddr)
-		bf := make([]byte, 256)
-		p.Read(bf)
-
+		if err != nil {
+			panic(err)
+		}
 	} else {
 		options := serial.RawOptions
 		options.BitRate = 2400
@@ -41,16 +44,24 @@ func main() {
 			panic(err)
 		}
 	}
+	defer p.Close()
 	mk2, err := mk2if.NewMk2Connection(p)
 	defer mk2.Close()
 	if err != nil {
 		panic(err)
 	}
 	c := mk2.C()
+	sigterm := make(chan os.Signal, 1)
+	signal.Notify(sigterm, syscall.SIGTERM, os.Interrupt)
+mainloop:
 	for {
-		tmp := <-c
-		if tmp.Valid {
-			PrintInfo(tmp)
+		select {
+		case tmp := <-c:
+			if tmp.Valid {
+				PrintInfo(tmp)
+			}
+		case <-sigterm:
+			break mainloop
 		}
 	}
 	log.Printf("Closing connection")
