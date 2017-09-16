@@ -25,6 +25,7 @@ type mk2Ser struct {
 	locked bool
 	sync.RWMutex
 	infochan chan *Mk2Info
+	wg sync.WaitGroup
 }
 
 func NewMk2Connection(dev io.ReadWriter) (Mk2If, error) {
@@ -38,6 +39,7 @@ func NewMk2Connection(dev io.ReadWriter) (Mk2If, error) {
 	mk2.setTarget()
 	mk2.run = make(chan struct{})
 	mk2.infochan = make(chan *Mk2Info)
+	mk2.wg.Add(1)
 	go mk2.frameLock()
 	return mk2, nil
 }
@@ -50,38 +52,39 @@ func (mk2 *mk2Ser) frameLock() {
 	for {
 		select {
 		case <-mk2.run:
-			break
+			mk2.wg.Done()
+			return
 		default:
-			if mk2.locked {
-				size = mk2.readByte()
-				l, err := io.ReadFull(mk2.p, frame[0:int(size)+1])
+		}
+		if mk2.locked {
+			size = mk2.readByte()
+			l, err := io.ReadFull(mk2.p, frame[0:int(size)+1])
+			if err != nil {
+				mk2.addError(fmt.Errorf("Read Error: %v", err))
+				mk2.locked = false
+			} else if l != int(size)+1 {
+				mk2.addError(errors.New("Read Length Error"))
+				mk2.locked = false
+			} else {
+				mk2.handleFrame(size, frame[0:int(size+1)])
+			}
+		} else {
+			tmp := mk2.readByte()
+			if tmp == 0xff || tmp == 0x20 {
+				l, err := io.ReadFull(mk2.p, frame[0:int(size)])
 				if err != nil {
 					mk2.addError(fmt.Errorf("Read Error: %v", err))
-					mk2.locked = false
-				} else if l != int(size)+1 {
+					time.Sleep(1 * time.Second)
+				} else if l != int(size) {
 					mk2.addError(errors.New("Read Length Error"))
-					mk2.locked = false
 				} else {
-					mk2.handleFrame(size, frame[0:int(size+1)])
-				}
-			} else {
-				tmp := mk2.readByte()
-				if tmp == 0xff || tmp == 0x20 {
-					l, err := io.ReadFull(mk2.p, frame[0:int(size)])
-					if err != nil {
-						mk2.addError(fmt.Errorf("Read Error: %v", err))
-						time.Sleep(1 * time.Second)
-					} else if l != int(size) {
-						mk2.addError(errors.New("Read Length Error"))
-					} else {
-						if checkChecksum(size, tmp, frame[0:int(size)]) {
-							mk2.locked = true
-							log.Printf("Locked")
-						}
+					if checkChecksum(size, tmp, frame[0:int(size)]) {
+						mk2.locked = true
+						log.Printf("Locked")
 					}
 				}
-				size = tmp
 			}
+			size = tmp
 		}
 	}
 }
@@ -89,6 +92,7 @@ func (mk2 *mk2Ser) frameLock() {
 // Close Mk2
 func (mk2 *mk2Ser) Close() {
 	close(mk2.run)
+	mk2.wg.Wait()
 }
 
 // Returns last known state with all reported errors since previous poll.
