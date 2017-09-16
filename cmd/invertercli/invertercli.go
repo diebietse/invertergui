@@ -8,13 +8,11 @@ import (
 	"io"
 	"log"
 	"net"
-	"sync"
 )
 
 // Basic CLI to serve as example lib usage
 func main() {
 	//Info = log.New()
-	wg := sync.WaitGroup{}
 
 	tcp := flag.Bool("tcp", false, "Use TCP instead of TTY")
 	ip := flag.String("ip", "localhost:8139", "IP to connect when using tcp connection.")
@@ -49,7 +47,6 @@ func main() {
 		panic(err)
 	}
 	c := mk2.C()
-	wg.Add(1)
 	for {
 		tmp := <-c
 		if tmp.Valid {
@@ -57,7 +54,6 @@ func main() {
 		}
 	}
 	log.Printf("Closing connection")
-	wg.Wait()
 }
 
 func PrintInfo(info *mk2if.Mk2Info) {
