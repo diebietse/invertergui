@@ -119,7 +119,7 @@ type templateInput struct {
 func (w *WebGui) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	statusErr := <-w.respChan
 
-	tmpInput := buildTemplateInput(&statusErr, time.Now())
+	tmpInput := buildTemplateInput(&statusErr, statusErr.timestamp)
 
 	err := w.template.Execute(rw, tmpInput)
 	if err != nil {
@@ -170,6 +170,7 @@ type statusProcessed struct {
 	status      datasource.MultiplusStatus
 	chargeLevel float64
 	err         error
+	timestamp 		time.Time
 }
 
 // dataPoll waits for data from the w.poller channel. It will send its currently stored status
@@ -187,6 +188,7 @@ func (w *WebGui) dataPoll(batteryCapacity float64) {
 			} else {
 				statusP.status = s.MpStatus
 				statusP.err = nil
+				statusP.timestamp = s.Time
 				tracker.Update(s.MpStatus.BatCurrent, s.Time)
 				if s.MpStatus.Leds[Float] == 1 {
 					tracker.Reset()
