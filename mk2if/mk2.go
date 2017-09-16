@@ -130,6 +130,7 @@ func (mk2 *mk2Ser) addError(err error) {
 func (mk2 *mk2Ser) updateReport() {
 	mk2.Lock()
 	defer mk2.Unlock()
+	mk2.info.Timestamp = time.Now()
 	mk2.report = mk2.info
 	select {
 	case mk2.infochan <- mk2.info:

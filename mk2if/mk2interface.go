@@ -1,5 +1,7 @@
 package mk2if
 
+import "time"
+
 const (
 	LED_TEMPERATURE = 128
 	LED_LOW_BATTERY = 64
@@ -51,6 +53,8 @@ type Mk2Info struct {
 	LedListBlink []int
 
 	Errors []error
+
+	Timestamp time.Time
 }
 
 type Mk2If interface {
