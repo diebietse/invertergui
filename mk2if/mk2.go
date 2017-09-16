@@ -120,8 +120,8 @@ func (mk2 *mk2Ser) addError(err error) {
 func (mk2 *mk2Ser) updateReport() {
 	mk2.Lock()
 	defer mk2.Unlock()
-	*mk2.report = *mk2.info
-	mk2.info.Errors = nil
+	mk2.report = mk2.info
+	mk2.info = &Mk2Info{}
 }
 
 // Checks for valid frame and chooses decoding.
