@@ -122,7 +122,7 @@ func (pu *prometheusUpdater) updatePrometheus(newStatus *mk2if.Mk2Info) {
 	pu.batteryVoltage.Set(s.BatVoltage)
 	pu.batteryCharge.Set(newStatus.ChargeState * 100)
 	pu.batteryCurrent.Set(s.BatCurrent)
-	pu.batteryCurrent.Set(s.BatVoltage * s.BatCurrent)
+	pu.batteryPower.Set(s.BatVoltage * s.BatCurrent)
 	pu.mainsCurrentIn.Set(s.InCurrent)
 	pu.mainsCurrentOut.Set(s.OutCurrent)
 	pu.mainsVoltageIn.Set(s.InVoltage)
