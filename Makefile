@@ -1,4 +1,4 @@
-#Copyright (c) 2015, Hendrik van Wyk
+#Copyright (c) 2015, 2017 Hendrik van Wyk
 #All rights reserved.
 #
 #Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,7 @@
 .PHONY: test install gofmt
 
 install:
-	go install ./...
+	go install ./cmd/invertergui/
 
 all: install gofmt test
 

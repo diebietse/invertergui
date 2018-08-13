@@ -42,6 +42,9 @@ var htmlTemplate string = `<html>
 <body>
 	{{if .Error}} <p>Error encountered: {{.Error}} </p> {{end}}
 	<dl>
+		<dt> Date: {{.Date}}</dt>
+	</dl>
+	<dl>
 		<dt> LEDs:</dt>
 		{{range .Leds}}
 		<dt> {{.}}</dt>

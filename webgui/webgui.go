@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015, Hendrik van Wyk
+Copyright (c) 2015, 2017 Hendrik van Wyk
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,7 @@ import (
 	"html/template"
 	"net/http"
 	"sync"
+	"time"
 )
 
 const (
@@ -68,6 +69,8 @@ type WebGui struct {
 	muninRespChan chan muninData
 	poller        datasource.DataPoller
 	wg            sync.WaitGroup
+
+	pu *prometheusUpdater
 }
 
 func NewWebGui(source datasource.DataPoller, batteryCapacity float64) *WebGui {
@@ -81,14 +84,17 @@ func NewWebGui(source datasource.DataPoller, batteryCapacity float64) *WebGui {
 		panic(err)
 	}
 	w.poller = source
+	w.pu = newPrometheusUpdater()
+
 	w.wg.Add(1)
 	go w.dataPoll(batteryCapacity)
 	return w
 }
 
-//TemplateInput is exported to be used as an argument to the http template package.
-type TemplateInput struct {
+type templateInput struct {
 	Error error
+
+	Date string
 
 	OutCurrent string
 	OutVoltage string
@@ -121,13 +127,14 @@ func (w *WebGui) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func buildTemplateInput(statusErr *statusProcessed) *TemplateInput {
+func buildTemplateInput(statusErr *statusProcessed) *templateInput {
 	status := statusErr.status
 	outPower := status.OutVoltage * status.OutCurrent
 	inPower := status.InCurrent * status.InVoltage
 
-	tmpInput := &TemplateInput{
+	tmpInput := &templateInput{
 		Error:      statusErr.err,
+		Date:       time.Now().Format(time.RFC1123Z),
 		OutCurrent: fmt.Sprintf("%.3f", status.OutCurrent),
 		OutVoltage: fmt.Sprintf("%.3f", status.OutVoltage),
 		OutPower:   fmt.Sprintf("%.3f", outPower),
@@ -186,6 +193,7 @@ func (w *WebGui) dataPoll(batteryCapacity float64) {
 				}
 				statusP.chargeLevel = tracker.CurrentLevel()
 				calcMuninValues(&muninValues, &statusP)
+				w.pu.updatePrometheus(&statusP)
 			}
 		case w.respChan <- statusP:
 		case w.muninRespChan <- muninValues:
