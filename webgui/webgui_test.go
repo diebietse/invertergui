@@ -31,30 +31,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package webgui
 
 import (
-	"github.com/hpdvanwyk/invertergui/datasource"
+	"fmt"
+	"github.com/hpdvanwyk/invertergui/mk2if"
 	"reflect"
 	"testing"
+	"time"
 )
-
-type mockSource struct {
-}
-
-func NewMockSource() datasource.DataSource {
-	return &mockSource{}
-}
-
-func (s *mockSource) GetData(status *datasource.MultiplusStatus) error {
-	status.OutCurrent = 2.0
-	status.InCurrent = 2.3
-	status.OutVoltage = 230.0
-	status.InVoltage = 230.1
-	status.BatVoltage = 25
-	status.BatCurrent = -10
-	status.InFreq = 50
-	status.OutFreq = 50
-	status.Leds = []int{0, 0, 0, 0, 1, 0, 0, 1}
-	return nil
-}
 
 func TestWebGui(t *testing.T) {
 	t.Skip("Not yet implimented")
@@ -62,27 +44,30 @@ func TestWebGui(t *testing.T) {
 }
 
 type templateTest struct {
-	input  *statusProcessed
-	output *TemplateInput
+	input  *mk2if.Mk2Info
+	output *templateInput
 }
 
+var fakenow = time.Date(2017, 1, 2, 3, 4, 5, 6, time.UTC)
 var templateInputTests = []templateTest{
 	{
-		input: &statusProcessed{
-			status: datasource.MultiplusStatus{
-				OutCurrent: 2.0,
-				InCurrent:  2.3,
-				OutVoltage: 230.0,
-				InVoltage:  230.1,
-				BatVoltage: 25,
-				BatCurrent: -10,
-				InFreq:     50,
-				OutFreq:    50,
-				Leds:       []int{0, 0, 0, 0, 1, 0, 0, 1}},
-			err: nil,
+		input: &mk2if.Mk2Info{
+			OutCurrent:   2.0,
+			InCurrent:    2.3,
+			OutVoltage:   230.0,
+			InVoltage:    230.1,
+			BatVoltage:   25,
+			BatCurrent:   -10,
+			InFrequency:  50,
+			OutFrequency: 50,
+			ChargeState:  1,
+			LedListOn:    []int{mk2if.LED_MAIN, mk2if.LED_FLOAT},
+			Errors:       nil,
+			Timestamp:    fakenow,
 		},
-		output: &TemplateInput{
+		output: &templateInput{
 			Error:      nil,
+			Date:       fakenow.Format(time.RFC1123Z),
 			OutCurrent: "2.000",
 			OutVoltage: "230.000",
 			OutPower:   "460.000",
@@ -94,7 +79,8 @@ var templateInputTests = []templateTest{
 			BatCurrent: "-10.000",
 			BatPower:   "-250.000",
 			InFreq:     "50.000",
-			BatCharge:  "0.000",
+			OutFreq:    "50.000",
+			BatCharge:  "100.000",
 			Leds:       []string{"Mains", "Float"}},
 	},
 }
@@ -104,6 +90,7 @@ func TestTemplateInput(t *testing.T) {
 		templateInput := buildTemplateInput(templateInputTests[i].input)
 		if !reflect.DeepEqual(templateInput, templateInputTests[i].output) {
 			t.Errorf("buildTemplateInput not producing expected results")
+			fmt.Printf("%v\n%v\n", templateInput, templateInputTests[i].output)
 		}
 	}
 }

@@ -40,7 +40,14 @@ var htmlTemplate string = `<html>
 </head>
 
 <body>
-	{{if .Error}} <p>Error encountered: {{.Error}} </p> {{end}}
+	{{if .Error}} <p>Errors encountered: </p>
+		{{range .Error}}
+		<dt> {{.}}</dt>
+		{{end}}
+    {{end}}
+	<dl>
+		<dt> Date: {{.Date}}</dt>
+	</dl>
 	<dl>
 		<dt> LEDs:</dt>
 		{{range .Leds}}
@@ -52,6 +59,7 @@ var htmlTemplate string = `<html>
 	<dl>
 		<dt> Output Current: {{.OutCurrent}} A</dt>
 		<dt> Output Voltage: {{.OutVoltage}} V</dt>
+		<dt> Output Frequency: {{.OutFreq}} Hz</dt>
 		<dt> Output Power: {{.OutPower}} VA</dt>
 	</dl>
 	<dl>
@@ -65,7 +73,7 @@ var htmlTemplate string = `<html>
 		<dt> Battery Current: {{.BatCurrent}} A</dt>
 		<dt> Battery Voltage: {{.BatVoltage}} V</dt>
 		<dt> Battery Power: {{.BatPower}} W</dt>
-		<dt> Battery Charge: {{.BatCharge}} A h</dt>
+		<dt> Battery Charge: {{.BatCharge}} %</dt>
 	</dl>
 </body>
 </html>`

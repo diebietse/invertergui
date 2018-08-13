@@ -33,11 +33,12 @@ package webgui
 import (
 	"bytes"
 	"fmt"
+	"github.com/hpdvanwyk/invertergui/mk2if"
 	"net/http"
 )
 
 type muninData struct {
-	statusP      statusProcessed
+	status       mk2if.Mk2Info
 	timesUpdated int
 }
 
@@ -50,8 +51,8 @@ func (w *WebGui) ServeMuninHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 	calcMuninAverages(&muninDat)
 
-	statusP := &muninDat.statusP
-	tmpInput := buildTemplateInput(statusP)
+	status := muninDat.status
+	tmpInput := buildTemplateInput(&status)
 	outputBuf := &bytes.Buffer{}
 	fmt.Fprintf(outputBuf, "multigraph in_batvolt\n")
 	fmt.Fprintf(outputBuf, "volt.value %s\n", tmpInput.BatVoltage)
@@ -71,7 +72,8 @@ func (w *WebGui) ServeMuninHTTP(rw http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(outputBuf, "powerin.value %s\n", tmpInput.InPower)
 	fmt.Fprintf(outputBuf, "powerout.value %s\n", tmpInput.OutPower)
 	fmt.Fprintf(outputBuf, "multigraph in_mainsfreq\n")
-	fmt.Fprintf(outputBuf, "freq.value %s\n", tmpInput.InFreq)
+	fmt.Fprintf(outputBuf, "freqin.value %s\n", tmpInput.InFreq)
+	fmt.Fprintf(outputBuf, "freqout.value %s\n", tmpInput.OutFreq)
 
 	_, err := rw.Write([]byte(outputBuf.String()))
 	if err != nil {
@@ -91,12 +93,12 @@ volt.label Voltage of battery (V)
 
 multigraph in_batcharge
 graph_title Battery Charge
-graph_vlabel Charge (A h)
+graph_vlabel Charge (%)
 graph_category inverter
 graph_info Battery charge
 
 charge.info Estimated charge of battery
-charge.label Battery charge (A h)
+charge.label Battery charge (%)
 
 multigraph in_batcurrent
 graph_title Battery Current
@@ -155,8 +157,10 @@ graph_vlabel Frequency (Hz)
 graph_category inverter
 graph_info Mains frequency
 
-freq.info Input frequency
-freq.label Input frequency (Hz)
+freqin.info In frequency
+freqin.label In frequency (Hz)
+freqout.info Out frequency
+freqout.label Out frequency (Hz)
 `
 
 	_, err := rw.Write([]byte(output))
@@ -166,46 +170,47 @@ freq.label Input frequency (Hz)
 }
 
 //Munin only samples once every 5 minutes so averages have to be calculated for some values.
-func calcMuninValues(muninDat *muninData, newStatus *statusProcessed) {
+func calcMuninValues(muninDat *muninData, newStatus *mk2if.Mk2Info) {
 	muninDat.timesUpdated += 1
-	muninVal := &muninDat.statusP
-	muninVal.status.OutCurrent += newStatus.status.OutCurrent
-	muninVal.status.InCurrent += newStatus.status.InCurrent
-	muninVal.status.BatCurrent += newStatus.status.BatCurrent
+	muninVal := &muninDat.status
+	muninVal.OutCurrent += newStatus.OutCurrent
+	muninVal.InCurrent += newStatus.InCurrent
+	muninVal.BatCurrent += newStatus.BatCurrent
 
-	muninVal.status.OutVoltage += newStatus.status.OutVoltage
-	muninVal.status.InVoltage += newStatus.status.InVoltage
-	muninVal.status.BatVoltage += newStatus.status.BatVoltage
+	muninVal.OutVoltage += newStatus.OutVoltage
+	muninVal.InVoltage += newStatus.InVoltage
+	muninVal.BatVoltage += newStatus.BatVoltage
 
-	muninVal.status.InFreq = newStatus.status.InFreq
+	muninVal.InFrequency = newStatus.InFrequency
+	muninVal.OutFrequency = newStatus.OutFrequency
 
-	muninVal.chargeLevel = newStatus.chargeLevel
-	muninVal.status.Leds = newStatus.status.Leds
+	muninVal.ChargeState = newStatus.ChargeState
 }
 
 func calcMuninAverages(muninDat *muninData) {
-	muninVal := &muninDat.statusP
-	muninVal.status.OutCurrent /= float64(muninDat.timesUpdated)
-	muninVal.status.InCurrent /= float64(muninDat.timesUpdated)
-	muninVal.status.BatCurrent /= float64(muninDat.timesUpdated)
+	muninVal := &muninDat.status
+	muninVal.OutCurrent /= float64(muninDat.timesUpdated)
+	muninVal.InCurrent /= float64(muninDat.timesUpdated)
+	muninVal.BatCurrent /= float64(muninDat.timesUpdated)
 
-	muninVal.status.OutVoltage /= float64(muninDat.timesUpdated)
-	muninVal.status.InVoltage /= float64(muninDat.timesUpdated)
-	muninVal.status.BatVoltage /= float64(muninDat.timesUpdated)
+	muninVal.OutVoltage /= float64(muninDat.timesUpdated)
+	muninVal.InVoltage /= float64(muninDat.timesUpdated)
+	muninVal.BatVoltage /= float64(muninDat.timesUpdated)
 }
 
 func zeroMuninValues(muninDat *muninData) {
 	muninDat.timesUpdated = 0
-	muninVal := &muninDat.statusP
-	muninVal.status.OutCurrent = 0
-	muninVal.status.InCurrent = 0
-	muninVal.status.BatCurrent = 0
+	muninVal := &muninDat.status
+	muninVal.OutCurrent = 0
+	muninVal.InCurrent = 0
+	muninVal.BatCurrent = 0
 
-	muninVal.status.OutVoltage = 0
-	muninVal.status.InVoltage = 0
-	muninVal.status.BatVoltage = 0
+	muninVal.OutVoltage = 0
+	muninVal.InVoltage = 0
+	muninVal.BatVoltage = 0
 
-	muninVal.status.InFreq = 0
+	muninVal.InFrequency = 0
+	muninVal.OutFrequency = 0
 
-	muninVal.chargeLevel = 0
+	muninVal.ChargeState = 0
 }
