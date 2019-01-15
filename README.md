@@ -4,6 +4,10 @@ The invertergui allows the monitoring of a [Victron Multiplus](https://www.victr
 
 The `ncthompson/invertergui` docker image is a build of [invertergui](https://gitlab.com/ncthompson/invertergui)
 
+## Requirements
+
+This project makes use of [Go Modules](https://github.com/golang/go/wiki/Modules). The minimum version for Go is 1.11.x.
+
 ## Getting started
 
 ```bash
