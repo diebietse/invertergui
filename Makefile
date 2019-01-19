@@ -28,11 +28,11 @@
 
 .PHONY: test install gofmt
 
-install:
-	go install ./cmd/invertergui/
-	go install ./cmd/invertercli/
+build:
+	go build ./cmd/invertergui/
+	go build ./cmd/invertercli/
 
-all: install gofmt test
+all: build gofmt test
 
 gofmt:
 	gofmt -l -s -w .
