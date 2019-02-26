@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <link
+      rel="stylesheet"
+      href="https://bootswatch.com/4/darkly/bootstrap.min.css"
+      crossorigin="anonymous"
+    />
+    <title>Victron Multiplus Monitor</title>
+    <style>
+      .dot-off {
+        height: 25px;
+        width: 25px;
+        background-color: #bbb;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      .dot-green {
+        height: 25px;
+        width: 25px;
+        background-color: #2aed4e;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .dot-red {
+        height: 25px;
+        width: 25px;
+        background-color: #ed3d34;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .blink-red {
+        height: 25px;
+        width: 25px;
+        background-color: #ed3d34;
+        border-radius: 50%;
+        display: inline-block;
+        animation: blinkingRedDot 1s infinite;
+      }
+      @keyframes blinkingRedDot {
+        0% {
+          background-color: #ed3d34;
+        }
+        49% {
+          background-color: transparent;
+        }
+        50% {
+          background-color: transparent;
+        }
+        99% {
+          background-color: #ed3d34;
+        }
+        100% {
+          background-color: #ed3d34;
+        }
+      }
+      .blink-green {
+        height: 25px;
+        width: 25px;
+        background-color: #2aed4e;
+        border-radius: 50%;
+        display: inline-block;
+        animation: blinkingGreenDot 1s infinite;
+      }
+      @keyframes blinkingGreenDot {
+        0% {
+          background-color: #2aed4e;
+        }
+        49% {
+          background-color: transparent;
+        }
+        50% {
+          background-color: transparent;
+        }
+        99% {
+          background-color: #2aed4e;
+        }
+        100% {
+          background-color: #2aed4e;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="js/controller.js"></script>
+    <script type="text/javascript">
+      window.onload = function() {
+        loadContent();
+      };
+    </script>
+
+    <h1 class="display-4 text-center">Inverter GUI</h1>
+    <div class="container" id="app">
+      <div class="row">
+        <div class="col">
+          <hr />
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm  p-auto">
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Output Current</h5>
+              <blockquote class="blockquote">{{ output_current }} A</blockquote>
+            </div>
+          </div>
+
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Output Voltage</h5>
+              <blockquote class="blockquote">{{ output_voltage }} V</blockquote>
+            </div>
+          </div>
+
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Output Frequency</h5>
+              <blockquote class="blockquote">
+                {{ output_frequency }} Hz
+              </blockquote>
+            </div>
+          </div>
+
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Output Power</h5>
+              <blockquote class="blockquote">{{ output_power }} W</blockquote>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm p-auto">
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Input Current</h5>
+              <blockquote class="blockquote">{{ input_current }} A</blockquote>
+            </div>
+          </div>
+
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Input Voltage</h5>
+              <blockquote class="blockquote">{{ input_voltage }} V</blockquote>
+            </div>
+          </div>
+
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Input Frequency</h5>
+              <blockquote class="blockquote">
+                {{ input_frequency }} Hz
+              </blockquote>
+            </div>
+          </div>
+
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Input Power</h5>
+              <blockquote class="blockquote">{{ input_power }} W</blockquote>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm p-auto">
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Battery Current</h5>
+              <blockquote class="blockquote">
+                {{ battery_current }} A
+              </blockquote>
+            </div>
+          </div>
+
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Battery Voltage</h5>
+              <blockquote class="blockquote">
+                {{ battery_voltage }} V
+              </blockquote>
+            </div>
+          </div>
+
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Battery Charge</h5>
+              <blockquote class="blockquote">{{ battery_charge }} %</blockquote>
+            </div>
+          </div>
+
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Battery Power</h5>
+              <blockquote class="blockquote">{{ battery_power }} W</blockquote>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <hr />
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm p-3">
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Mains</h5>
+              <span v-bind:class="[led_mains]"></span>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm p-3">
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Absorption</h5>
+              <span v-bind:class="[led_absorb]"></span>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm p-3">
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Bulk</h5>
+              <span v-bind:class="[led_bulk]"></span>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm p-3">
+          <div class="card text-center ">
+            <div class="card-body">
+              <h5 class="card-title">Float</h5>
+              <span v-bind:class="[led_float]"></span>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm p-3">
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Inverter</h5>
+              <span v-bind:class="[led_inverter]"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-sm p-3">
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Overload</h5>
+              <span v-bind:class="[led_overload]"></span>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm p-3">
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Low Battery</h5>
+              <span v-bind:class="[led_bat_low]"></span>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm p-3">
+          <div class="card text-center">
+            <div class="card-body">
+              <h5 class="card-title">Temperature</h5>
+              <span v-bind:class="[led_over_temp]"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -32,37 +32,41 @@ package webgui
 
 import (
 	"fmt"
-	"github.com/hpdvanwyk/invertergui/mk2if"
-	"html/template"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/hpdvanwyk/invertergui/mk2if"
+	"github.com/hpdvanwyk/invertergui/websocket"
+)
+
+const (
+	LedOff     = "dot-off"
+	LedRed     = "dot-red"
+	BlinkRed   = "blink-red"
+	LedGreen   = "dot-green"
+	BlinkGreen = "blink-green"
 )
 
 type WebGui struct {
 	respChan chan *mk2if.Mk2Info
 	stopChan chan struct{}
-	template *template.Template
 
 	muninRespChan chan muninData
 	poller        mk2if.Mk2If
 	wg            sync.WaitGroup
+	hub           *websocket.Hub
 
 	pu *prometheusUpdater
 }
 
 func NewWebGui(source mk2if.Mk2If) *WebGui {
 	w := new(WebGui)
-	w.respChan = make(chan *mk2if.Mk2Info)
 	w.muninRespChan = make(chan muninData)
 	w.stopChan = make(chan struct{})
-	var err error
-	w.template, err = template.New("thegui").Parse(htmlTemplate)
-	if err != nil {
-		panic(err)
-	}
 	w.poller = source
 	w.pu = newPrometheusUpdater()
+	w.hub = websocket.NewHub()
 
 	w.wg.Add(1)
 	go w.dataPoll()
@@ -70,44 +74,55 @@ func NewWebGui(source mk2if.Mk2If) *WebGui {
 }
 
 type templateInput struct {
-	Error []error
+	Error []error `json:"errors"`
 
-	Date string
+	Date string `json:"date"`
 
-	OutCurrent string
-	OutVoltage string
-	OutPower   string
+	OutCurrent string `json:"output_current"`
+	OutVoltage string `json:"output_voltage"`
+	OutPower   string `json:"output_power"`
 
-	InCurrent string
-	InVoltage string
-	InPower   string
+	InCurrent string `json:"input_current"`
+	InVoltage string `json:"input_voltage"`
+	InPower   string `json:"input_power"`
 
 	InMinOut string
 
-	BatVoltage string
-	BatCurrent string
-	BatPower   string
-	BatCharge  string
+	BatVoltage string `json:"battery_voltage"`
+	BatCurrent string `json:"battery_current"`
+	BatPower   string `json:"battery_power"`
+	BatCharge  string `json:"battery_charge"`
 
-	InFreq  string
-	OutFreq string
+	InFreq  string `json:"input_frequency"`
+	OutFreq string `json:"output_frequency"`
+	/*
+		MainsLed    string `json:"main_led"`
+		AbsorbLed   string `json:"absorb_led"`
+		BulkLed     string `json:"bulk_led"`
+		FloatLed    string `json:"float_led"`
+		InverterLed string `json:"inverter_led"`
 
-	Leds []string
+		OverloadLed string `json:"overload_led"`
+		LowBatLed   string `json:"low_bat_led"`
+		OverTempLed string `json:"over_temp_led"`
+	*/
+	LedMap map[string]string `json:"led_map"`
 }
 
 func (w *WebGui) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	statusErr := <-w.respChan
-
-	tmpInput := buildTemplateInput(statusErr)
-
-	err := w.template.Execute(rw, tmpInput)
-	if err != nil {
-		panic(err)
-	}
+	http.ServeFile(rw, r, "./frontend/index.html")
 }
 
-func ledName(nameInt int) string {
-	name, ok := mk2if.LedNames[nameInt]
+func (w *WebGui) ServeJS(rw http.ResponseWriter, r *http.Request) {
+	http.ServeFile(rw, r, "./frontend/js/controller.js")
+}
+
+func (w *WebGui) ServeHub(rw http.ResponseWriter, r *http.Request) {
+	w.hub.ServeHTTP(rw, r)
+}
+
+func ledName(led mk2if.Led) string {
+	name, ok := mk2if.LedNames[led]
 	if !ok {
 		return "Unknown led"
 	}
@@ -121,24 +136,44 @@ func buildTemplateInput(status *mk2if.Mk2Info) *templateInput {
 	tmpInput := &templateInput{
 		Error:      status.Errors,
 		Date:       status.Timestamp.Format(time.RFC1123Z),
-		OutCurrent: fmt.Sprintf("%.3f", status.OutCurrent),
-		OutVoltage: fmt.Sprintf("%.3f", status.OutVoltage),
-		OutPower:   fmt.Sprintf("%.3f", outPower),
-		InCurrent:  fmt.Sprintf("%.3f", status.InCurrent),
-		InVoltage:  fmt.Sprintf("%.3f", status.InVoltage),
-		InFreq:     fmt.Sprintf("%.3f", status.InFrequency),
-		OutFreq:    fmt.Sprintf("%.3f", status.OutFrequency),
-		InPower:    fmt.Sprintf("%.3f", inPower),
+		OutCurrent: fmt.Sprintf("%.2f", status.OutCurrent),
+		OutVoltage: fmt.Sprintf("%.2f", status.OutVoltage),
+		OutPower:   fmt.Sprintf("%.2f", outPower),
+		InCurrent:  fmt.Sprintf("%.2f", status.InCurrent),
+		InVoltage:  fmt.Sprintf("%.2f", status.InVoltage),
+		InFreq:     fmt.Sprintf("%.2f", status.InFrequency),
+		OutFreq:    fmt.Sprintf("%.2f", status.OutFrequency),
+		InPower:    fmt.Sprintf("%.2f", inPower),
 
-		InMinOut: fmt.Sprintf("%.3f", inPower-outPower),
+		InMinOut: fmt.Sprintf("%.2f", inPower-outPower),
 
-		BatCurrent: fmt.Sprintf("%.3f", status.BatCurrent),
-		BatVoltage: fmt.Sprintf("%.3f", status.BatVoltage),
-		BatPower:   fmt.Sprintf("%.3f", status.BatVoltage*status.BatCurrent),
-		BatCharge:  fmt.Sprintf("%.3f", status.ChargeState*100),
+		BatCurrent: fmt.Sprintf("%.2f", status.BatCurrent),
+		BatVoltage: fmt.Sprintf("%.2f", status.BatVoltage),
+		BatPower:   fmt.Sprintf("%.2f", status.BatVoltage*status.BatCurrent),
+		BatCharge:  fmt.Sprintf("%.2f", status.ChargeState*100),
+
+		LedMap: map[string]string{},
 	}
-	for i := range status.LedListOn {
-		tmpInput.Leds = append(tmpInput.Leds, ledName(status.LedListOn[i]))
+	for k, v := range status.LEDs {
+		if k == mk2if.LedOverload || k == mk2if.LedTemperature || k == mk2if.LedLowBattery {
+			switch v {
+			case mk2if.LedOn:
+				tmpInput.LedMap[ledName(k)] = LedRed
+			case mk2if.LedBlink:
+				tmpInput.LedMap[ledName(k)] = BlinkRed
+			default:
+				tmpInput.LedMap[ledName(k)] = LedOff
+			}
+		} else {
+			switch v {
+			case mk2if.LedOn:
+				tmpInput.LedMap[ledName(k)] = LedGreen
+			case mk2if.LedBlink:
+				tmpInput.LedMap[ledName(k)] = BlinkGreen
+			default:
+				tmpInput.LedMap[ledName(k)] = LedOff
+			}
+		}
 	}
 	return tmpInput
 }
@@ -160,8 +195,8 @@ func (w *WebGui) dataPoll() {
 			if s.Valid {
 				calcMuninValues(&muninValues, s)
 				w.pu.updatePrometheus(s)
+				w.hub.Broadcast(buildTemplateInput(s))
 			}
-		case w.respChan <- s:
 		case w.muninRespChan <- muninValues:
 			zeroMuninValues(&muninValues)
 		case <-w.stopChan:
