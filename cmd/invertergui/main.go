@@ -32,14 +32,15 @@ package main
 
 import (
 	"flag"
-	"github.com/hpdvanwyk/invertergui/mk2if"
-	"github.com/hpdvanwyk/invertergui/webgui"
-	"github.com/mikepb/go-serial"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"io"
 	"log"
 	"net"
 	"net/http"
+
+	"github.com/hpdvanwyk/invertergui/mk2if"
+	"github.com/hpdvanwyk/invertergui/webgui"
+	"github.com/mikepb/go-serial"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -81,6 +82,8 @@ func main() {
 
 	gui := webgui.NewWebGui(mk2)
 	http.Handle("/", gui)
+	http.Handle("/ws", http.HandlerFunc(gui.ServeHub))
+	http.Handle("/js/controller.js", http.HandlerFunc(gui.ServeJS))
 	http.Handle("/munin", http.HandlerFunc(gui.ServeMuninHTTP))
 	http.Handle("/muninconfig", http.HandlerFunc(gui.ServeMuninConfigHTTP))
 	http.Handle("/metrics", promhttp.Handler())
