@@ -293,9 +293,8 @@ func (mk *mk2Ser) stateDecode(frame []byte) {
 
 // Decode the LED state frame.
 func (mk *mk2Ser) ledDecode(frame []byte) {
-	mk.info.LedListOn = getLeds(frame[0])
-	mk.info.LedListBlink = getLeds(frame[1])
 
+	mk.info.LEDs = getLEDs(frame[0], frame[1])
 	// Send charge state request
 	cmd := make([]byte, 4)
 	cmd[0] = 0x57 //W
@@ -305,12 +304,18 @@ func (mk *mk2Ser) ledDecode(frame []byte) {
 }
 
 // Adds active LEDs to list.
-func getLeds(led byte) []int {
-	leds := make([]int, 0)
+func getLEDs(ledsOn, ledsBlink byte) map[Led]LEDstate {
+
+	leds := map[Led]LEDstate{}
 	for i := 0; i < 8; i++ {
-		t := (led >> uint(i)) & 1
-		if t == 1 {
-			leds = append(leds, int(1<<uint(i)))
+		on := (ledsOn >> uint(i)) & 1
+		blink := (ledsBlink >> uint(i)) & 1
+		if on == 1 {
+			leds[Led(i)] = LedOn
+		} else if blink == 1 {
+			leds[Led(i)] = LedBlink
+		} else {
+			leds[Led(i)] = LedOff
 		}
 	}
 	return leds

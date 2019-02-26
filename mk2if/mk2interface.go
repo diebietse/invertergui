@@ -2,27 +2,37 @@ package mk2if
 
 import "time"
 
+type Led int
+
 const (
-	LED_TEMPERATURE = 128
-	LED_LOW_BATTERY = 64
-	LED_OVERLOAD    = 32
-	LED_INVERTER    = 16
-	LED_FLOAT       = 8
-	LED_BULK        = 4
-	LED_ABSORPTION  = 2
-	LED_MAIN        = 1
+	LedMain Led = iota
+	LedAbsorption
+	LedBulk
+	LedFloat
+	LedInverter
+	LedOverload
+	LedLowBattery
+	LedTemperature
 )
 
-var LedNames = map[int]string{
-	LED_TEMPERATURE: "Temperature",
-	LED_LOW_BATTERY: "Low Battery",
-	LED_OVERLOAD:    "Overload",
-	LED_INVERTER:    "Inverter",
-	LED_FLOAT:       "Float",
-	LED_BULK:        "Bulk",
-	LED_ABSORPTION:  "Absorbtion",
-	LED_MAIN:        "Mains",
+var LedNames = map[Led]string{
+	LedTemperature: "led_over_temp",
+	LedLowBattery:  "led_bat_low",
+	LedOverload:    "led_overload",
+	LedInverter:    "led_inverter",
+	LedFloat:       "led_float",
+	LedBulk:        "led_bulk",
+	LedAbsorption:  "led_absorb",
+	LedMain:        "led_mains",
 }
+
+type LEDstate int
+
+const (
+	LedOff LEDstate = iota
+	LedOn
+	LedBlink
+)
 
 type Mk2Info struct {
 	// Will be marked as false if an error is detected.
@@ -48,9 +58,8 @@ type Mk2Info struct {
 	// Charge state 0.0 to 1.0
 	ChargeState float64
 
-	// List only active LEDs
-	LedListOn    []int
-	LedListBlink []int
+	// List LEDs
+	LEDs map[Led]LEDstate
 
 	Errors []error
 
