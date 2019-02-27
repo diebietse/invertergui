@@ -34,6 +34,12 @@ const (
 	LedBlink
 )
 
+var StateNames = map[LEDstate]string{
+	LedOff:   "off",
+	LedOn:    "on",
+	LedBlink: "blink",
+}
+
 type Mk2Info struct {
 	// Will be marked as false if an error is detected.
 	Valid bool
