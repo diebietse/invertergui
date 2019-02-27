@@ -74,14 +74,11 @@ func PrintInfo(info *mk2if.Mk2Info) {
 	out += fmt.Sprintf("Out Volt: %.2fV Out Cur: %.2fA Out Freq %.2fHz\n", info.OutVoltage, info.OutCurrent, info.OutFrequency)
 	out += fmt.Sprintf("In Power %.2fW Out Power %.2fW\n", info.InVoltage*info.InCurrent, info.OutVoltage*info.OutCurrent)
 	out += fmt.Sprintf("Charge State: %.2f%%\n", info.ChargeState*100)
-	out += "LEDs on:"
-	for _, v := range info.LedListOn {
-		out += " " + mk2if.LedNames[v]
+	out += "LEDs state:"
+	for k, v := range info.LEDs {
+		out += fmt.Sprintf(" %s %s", mk2if.LedNames[k], mk2if.StateNames[v])
 	}
-	out += "\nLEDs blink:"
-	for _, v := range info.LedListBlink {
-		out += " " + mk2if.LedNames[v]
-	}
+
 	out += "\nErrors:"
 	for _, v := range info.Errors {
 		out += " " + v.Error()
