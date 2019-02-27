@@ -95,17 +95,7 @@ type templateInput struct {
 
 	InFreq  string `json:"input_frequency"`
 	OutFreq string `json:"output_frequency"`
-	/*
-		MainsLed    string `json:"main_led"`
-		AbsorbLed   string `json:"absorb_led"`
-		BulkLed     string `json:"bulk_led"`
-		FloatLed    string `json:"float_led"`
-		InverterLed string `json:"inverter_led"`
 
-		OverloadLed string `json:"overload_led"`
-		LowBatLed   string `json:"low_bat_led"`
-		OverTempLed string `json:"over_temp_led"`
-	*/
 	LedMap map[string]string `json:"led_map"`
 }
 
