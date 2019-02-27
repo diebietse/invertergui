@@ -37,6 +37,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/hpdvanwyk/invertergui/frontend"
 	"github.com/hpdvanwyk/invertergui/mk2if"
 	"github.com/hpdvanwyk/invertergui/webgui"
 	"github.com/mikepb/go-serial"
@@ -81,9 +82,15 @@ func main() {
 	}
 
 	gui := webgui.NewWebGui(mk2)
-	http.Handle("/", gui)
+
+	rootFs := http.FileServer(frontend.BinaryFileSystem("root"))
+	http.Handle("/", rootFs)
+	jsFs := http.FileServer(frontend.BinaryFileSystem("js"))
+	http.Handle("/js/", http.StripPrefix("/js", jsFs))
+	cssFs := http.FileServer(frontend.BinaryFileSystem("css"))
+	http.Handle("/css/", http.StripPrefix("/css", cssFs))
+
 	http.Handle("/ws", http.HandlerFunc(gui.ServeHub))
-	http.Handle("/js/controller.js", http.HandlerFunc(gui.ServeJS))
 	http.Handle("/munin", http.HandlerFunc(gui.ServeMuninHTTP))
 	http.Handle("/muninconfig", http.HandlerFunc(gui.ServeMuninConfigHTTP))
 	http.Handle("/metrics", promhttp.Handler())
