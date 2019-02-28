@@ -26,7 +26,7 @@
 #OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-.PHONY: test install gofmt docker
+.PHONY: test install gofmt docker statik
 
 build:
 	go build ./cmd/invertergui/
@@ -48,3 +48,6 @@ vet:
 
 docker:
 	docker build --tag invertergui .
+
+statik:
+	statik -p=frontend -src=./frontend/root
