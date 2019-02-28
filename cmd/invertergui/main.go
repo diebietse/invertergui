@@ -83,13 +83,7 @@ func main() {
 
 	gui := webgui.NewWebGui(mk2)
 
-	rootFs := http.FileServer(frontend.BinaryFileSystem("root"))
-	http.Handle("/", rootFs)
-	jsFs := http.FileServer(frontend.BinaryFileSystem("js"))
-	http.Handle("/js/", http.StripPrefix("/js", jsFs))
-	cssFs := http.FileServer(frontend.BinaryFileSystem("css"))
-	http.Handle("/css/", http.StripPrefix("/css", cssFs))
-
+	http.Handle("/", frontend.NewStatic())
 	http.Handle("/ws", http.HandlerFunc(gui.ServeHub))
 	http.Handle("/munin", http.HandlerFunc(gui.ServeMuninHTTP))
 	http.Handle("/muninconfig", http.HandlerFunc(gui.ServeMuninConfigHTTP))
