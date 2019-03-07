@@ -33,8 +33,9 @@ package webgui
 import (
 	"bytes"
 	"fmt"
-	"github.com/hpdvanwyk/invertergui/mk2if"
 	"net/http"
+
+	"github.com/hpdvanwyk/invertergui/mk2if"
 )
 
 type muninData struct {
@@ -46,7 +47,7 @@ func (w *WebGui) ServeMuninHTTP(rw http.ResponseWriter, r *http.Request) {
 	muninDat := <-w.muninRespChan
 	if muninDat.timesUpdated == 0 {
 		rw.WriteHeader(500)
-		rw.Write([]byte("No data to return.\n"))
+		_, _ = rw.Write([]byte("No data to return.\n"))
 		return
 	}
 	calcMuninAverages(&muninDat)
@@ -75,7 +76,7 @@ func (w *WebGui) ServeMuninHTTP(rw http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(outputBuf, "freqin.value %s\n", tmpInput.InFreq)
 	fmt.Fprintf(outputBuf, "freqout.value %s\n", tmpInput.OutFreq)
 
-	_, err := rw.Write([]byte(outputBuf.String()))
+	_, err := rw.Write(outputBuf.Bytes())
 	if err != nil {
 		fmt.Printf("%v\n", err)
 	}
@@ -171,7 +172,7 @@ freqout.label Out frequency (Hz)
 
 //Munin only samples once every 5 minutes so averages have to be calculated for some values.
 func calcMuninValues(muninDat *muninData, newStatus *mk2if.Mk2Info) {
-	muninDat.timesUpdated += 1
+	muninDat.timesUpdated++
 	muninVal := &muninDat.status
 	muninVal.OutCurrent += newStatus.OutCurrent
 	muninVal.InCurrent += newStatus.InCurrent

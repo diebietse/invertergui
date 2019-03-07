@@ -32,10 +32,11 @@ package webgui
 
 import (
 	"fmt"
-	"github.com/hpdvanwyk/invertergui/mk2if"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/hpdvanwyk/invertergui/mk2if"
 )
 
 func TestWebGui(t *testing.T) {
@@ -61,27 +62,28 @@ var templateInputTests = []templateTest{
 			InFrequency:  50,
 			OutFrequency: 50,
 			ChargeState:  1,
-			LedListOn:    []int{mk2if.LED_MAIN, mk2if.LED_FLOAT},
+			LEDs:         map[mk2if.Led]mk2if.LEDstate{mk2if.LedMain: mk2if.LedOn},
 			Errors:       nil,
 			Timestamp:    fakenow,
 		},
 		output: &templateInput{
 			Error:      nil,
 			Date:       fakenow.Format(time.RFC1123Z),
-			OutCurrent: "2.000",
-			OutVoltage: "230.000",
-			OutPower:   "460.000",
-			InCurrent:  "2.300",
-			InVoltage:  "230.100",
-			InPower:    "529.230",
-			InMinOut:   "69.230",
-			BatVoltage: "25.000",
-			BatCurrent: "-10.000",
-			BatPower:   "-250.000",
-			InFreq:     "50.000",
-			OutFreq:    "50.000",
-			BatCharge:  "100.000",
-			Leds:       []string{"Mains", "Float"}},
+			OutCurrent: "2.00",
+			OutVoltage: "230.00",
+			OutPower:   "460.00",
+			InCurrent:  "2.30",
+			InVoltage:  "230.10",
+			InPower:    "529.23",
+			InMinOut:   "69.23",
+			BatVoltage: "25.00",
+			BatCurrent: "-10.00",
+			BatPower:   "-250.00",
+			InFreq:     "50.00",
+			OutFreq:    "50.00",
+			BatCharge:  "100.00",
+			LedMap:     map[string]string{"led_mains": "dot-green"},
+		},
 	},
 }
 

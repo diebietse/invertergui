@@ -29,8 +29,7 @@
 .PHONY: test install gofmt docker statik
 
 build:
-	go build ./cmd/invertergui/
-	go build ./cmd/invertercli/
+	go build ./cmd/...
 
 all: build gofmt test
 
@@ -51,3 +50,6 @@ docker:
 
 statik:
 	statik -p=frontend -src=./frontend/root
+
+lint:
+	golangci-lint run

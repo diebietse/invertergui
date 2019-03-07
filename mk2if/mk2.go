@@ -16,70 +16,67 @@ type scaling struct {
 }
 
 type mk2Ser struct {
-	info   *Mk2Info
-	report *Mk2Info
-	p      io.ReadWriter
-	sc     []scaling
-	scN    int
-	run    chan struct{}
-	locked bool
-	sync.RWMutex
-	infochan chan *Mk2Info
-	wg       sync.WaitGroup
+	info       *Mk2Info
+	p          io.ReadWriter
+	scales     []scaling
+	scaleCount int
+	run        chan struct{}
+	frameLock  bool
+	infochan   chan *Mk2Info
+	wg         sync.WaitGroup
 }
 
 func NewMk2Connection(dev io.ReadWriter) (Mk2If, error) {
 	mk2 := &mk2Ser{}
 	mk2.p = dev
 	mk2.info = &Mk2Info{}
-	mk2.report = &Mk2Info{}
-	mk2.scN = 0
-	mk2.locked = false
-	mk2.sc = make([]scaling, 0)
+	mk2.scaleCount = 0
+	mk2.frameLock = false
+	mk2.scales = make([]scaling, 0, 14)
 	mk2.setTarget()
 	mk2.run = make(chan struct{})
 	mk2.infochan = make(chan *Mk2Info)
 	mk2.wg.Add(1)
-	go mk2.frameLock()
+	go mk2.frameLocker()
 	return mk2, nil
 }
 
 // Locks to incoming frame.
-func (mk2 *mk2Ser) frameLock() {
+func (m *mk2Ser) frameLocker() {
 
 	frame := make([]byte, 256)
 	var size byte
 	for {
 		select {
-		case <-mk2.run:
-			mk2.wg.Done()
+		case <-m.run:
+			m.wg.Done()
 			return
 		default:
 		}
-		if mk2.locked {
-			size = mk2.readByte()
-			l, err := io.ReadFull(mk2.p, frame[0:int(size)+1])
+		if m.frameLock {
+			size = m.readByte()
+			l, err := io.ReadFull(m.p, frame[0:int(size)+1])
 			if err != nil {
-				mk2.addError(fmt.Errorf("Read Error: %v", err))
-				mk2.locked = false
+				m.addError(fmt.Errorf("Read Error: %v", err))
+				m.frameLock = false
 			} else if l != int(size)+1 {
-				mk2.addError(errors.New("Read Length Error"))
-				mk2.locked = false
+				m.addError(errors.New("Read Length Error"))
+				m.frameLock = false
 			} else {
-				mk2.handleFrame(size, frame[0:int(size+1)])
+				m.handleFrame(size, frame[0:int(size+1)])
 			}
 		} else {
-			tmp := mk2.readByte()
+			tmp := m.readByte()
 			if tmp == 0xff || tmp == 0x20 {
-				l, err := io.ReadFull(mk2.p, frame[0:int(size)])
+				l, err := io.ReadFull(m.p, frame[0:int(size)])
 				if err != nil {
-					mk2.addError(fmt.Errorf("Read Error: %v", err))
+					m.addError(fmt.Errorf("Read Error: %v", err))
 					time.Sleep(1 * time.Second)
 				} else if l != int(size) {
-					mk2.addError(errors.New("Read Length Error"))
+					m.addError(errors.New("Read Length Error"))
 				} else {
 					if checkChecksum(size, tmp, frame[0:int(size)]) {
-						mk2.locked = true
+						m.frameLock = true
 						log.Printf("Locked")
 					}
 				}
@@ -90,109 +87,98 @@ func (mk2 *mk2Ser) frameLock() {
 }
 
 // Close Mk2
-func (mk2 *mk2Ser) Close() {
-	close(mk2.run)
-	mk2.wg.Wait()
+func (m *mk2Ser) Close() {
+	close(m.run)
+	m.wg.Wait()
 }
 
-// Returns last known state with all reported errors since previous poll.
-// Mk2Info.Valid will be false if no polling has completed.
-func (mk2 *mk2Ser) GetMk2Info() *Mk2Info {
-	mk2.RLock()
-	defer mk2.RUnlock()
-	return mk2.report
+func (m *mk2Ser) C() chan *Mk2Info {
+	return m.infochan
 }
 
-func (mk2 *mk2Ser) C() chan *Mk2Info {
-	return mk2.infochan
-}
-
-func (mk2 *mk2Ser) readByte() byte {
+func (m *mk2Ser) readByte() byte {
 	buffer := make([]byte, 1)
-	_, err := io.ReadFull(mk2.p, buffer)
+	_, err := io.ReadFull(m.p, buffer)
 	if err != nil {
-		mk2.addError(fmt.Errorf("Read error: %v", err))
+		m.addError(fmt.Errorf("Read error: %v", err))
 		return 0
 	}
 	return buffer[0]
 }
 
 // Adds error to error slice.
-func (mk2 *mk2Ser) addError(err error) {
-	if mk2.info.Errors == nil {
-		mk2.info.Errors = make([]error, 0)
+func (m *mk2Ser) addError(err error) {
+	if m.info.Errors == nil {
+		m.info.Errors = make([]error, 0)
 	}
-	mk2.info.Errors = append(mk2.info.Errors, err)
-	mk2.info.Valid = false
+	m.info.Errors = append(m.info.Errors, err)
+	m.info.Valid = false
 }
 
 // Updates report.
-func (mk2 *mk2Ser) updateReport() {
-	mk2.Lock()
-	defer mk2.Unlock()
-	mk2.info.Timestamp = time.Now()
-	mk2.report = mk2.info
+func (m *mk2Ser) updateReport() {
+	m.info.Timestamp = time.Now()
 	select {
-	case mk2.infochan <- mk2.info:
+	case m.infochan <- m.info:
 	default:
 	}
-	mk2.info = &Mk2Info{}
+	m.info = &Mk2Info{}
 }
 
 // Checks for valid frame and chooses decoding.
-func (mk2 *mk2Ser) handleFrame(l byte, frame []byte) {
+func (m *mk2Ser) handleFrame(l byte, frame []byte) {
 	if checkChecksum(l, frame[0], frame[1:]) {
 		switch frame[0] {
 		case 0xff:
 			switch frame[1] {
 			case 0x56: // V
-				mk2.versionDecode(frame[2:])
+				m.versionDecode(frame[2:])
 			case 0x57:
 				switch frame[2] {
 				case 0x8e:
-					mk2.scaleDecode(frame[2:])
+					m.scaleDecode(frame[2:])
 				case 0x85:
-					mk2.stateDecode(frame[2:])
+					m.stateDecode(frame[2:])
 				}
 
 			case 0x4C: // L
-				mk2.ledDecode(frame[2:])
+				m.ledDecode(frame[2:])
 			}
 
 		case 0x20:
 			switch frame[5] {
 			case 0x0C:
-				mk2.dcDecode(frame[1:])
+				m.dcDecode(frame[1:])
 			case 0x08:
-				mk2.acDecode(frame[1:])
+				m.acDecode(frame[1:])
 			}
 		}
 	} else {
-		log.Printf("Failed")
-		mk2.locked = false
+		log.Printf("Invalid incoming frame checksum: %x", frame)
+		m.frameLock = false
 	}
 }
 
 // Set the target VBus device.
-func (mk *mk2Ser) setTarget() {
+func (m *mk2Ser) setTarget() {
 	cmd := make([]byte, 3)
 	cmd[0] = 0x41 // A
 	cmd[1] = 0x01
 	cmd[2] = 0x00
-	mk.sendCommand(cmd)
+	m.sendCommand(cmd)
 }
 
 // Request the scaling factor for entry 'in'.
-func (mk *mk2Ser) reqScaleFactor(in byte) {
+func (m *mk2Ser) reqScaleFactor(in byte) {
 	cmd := make([]byte, 4)
 	cmd[0] = 0x57 // W
 	cmd[1] = 0x36
 	cmd[2] = in
-	mk.sendCommand(cmd)
+	m.sendCommand(cmd)
 }
 
 // Decode the scale factor frame.
-func (mk *mk2Ser) scaleDecode(frame []byte) {
+func (m *mk2Ser) scaleDecode(frame []byte) {
 	scl := uint16(frame[2])<<8 + uint16(frame[1])
 	ofs := int16(uint16(frame[5])<<8 + uint16(frame[4]))
 
@@ -203,11 +189,11 @@ func (mk *mk2Ser) scaleDecode(frame []byte) {
 	} else {
 		tmp.scale = math.Abs(float64(scl))
 	}
-	mk.sc = append(mk.sc, tmp)
+	m.scales = append(m.scales, tmp)
 
-	mk.scN++
-	if mk.scN < 14 {
-		mk.reqScaleFactor(byte(mk.scN))
+	m.scaleCount++
+	if m.scaleCount < 14 {
+		m.reqScaleFactor(byte(m.scaleCount))
 	} else {
 		log.Print("Monitoring starting.")
 	}
@@ -215,28 +201,28 @@ func (mk *mk2Ser) scaleDecode(frame []byte) {
 }
 
 // Decode the version number
-func (mk *mk2Ser) versionDecode(frame []byte) {
-	mk.info.Version = 0
-	mk.info.Valid = true
+func (m *mk2Ser) versionDecode(frame []byte) {
+	m.info.Version = 0
+	m.info.Valid = true
 	for i := 0; i < 4; i++ {
-		mk.info.Version += uint32(frame[i]) << uint(i) * 8
+		m.info.Version += uint32(frame[i]) << uint(i) * 8
 	}
 
-	if mk.scN < 14 {
+	if m.scaleCount < 14 {
 		log.Print("Get scaling factors.")
-		mk.reqScaleFactor(byte(mk.scN))
+		m.reqScaleFactor(byte(m.scaleCount))
 	} else {
 		// Send DC status request
 		cmd := make([]byte, 2)
 		cmd[0] = 0x46 //F
 		cmd[1] = 0
-		mk.sendCommand(cmd)
+		m.sendCommand(cmd)
 	}
 }
 
 // Apply scaling to float
-func (mk *mk2Ser) applyScale(value float64, scale int) float64 {
-	return mk.sc[scale].scale * (value + mk.sc[scale].offset)
+func (m *mk2Ser) applyScale(value float64, scale int) float64 {
+	return m.scales[scale].scale * (value + m.scales[scale].offset)
 }
 
 // Convert bytes->int16->float
@@ -250,57 +236,57 @@ func getUnsigned(data []byte) float64 {
 }
 
 // Decodes DC frame.
-func (mk *mk2Ser) dcDecode(frame []byte) {
-	mk.info.BatVoltage = mk.applyScale(getSigned(frame[5:7]), 4)
+func (m *mk2Ser) dcDecode(frame []byte) {
+	m.info.BatVoltage = m.applyScale(getSigned(frame[5:7]), 4)
 
-	usedC := mk.applyScale(getUnsigned(frame[7:10]), 5)
-	chargeC := mk.applyScale(getUnsigned(frame[10:13]), 5)
-	mk.info.BatCurrent = usedC - chargeC
+	usedC := m.applyScale(getUnsigned(frame[7:10]), 5)
+	chargeC := m.applyScale(getUnsigned(frame[10:13]), 5)
+	m.info.BatCurrent = usedC - chargeC
 
-	mk.info.OutFrequency = 10 / (mk.applyScale(float64(frame[13]), 7))
+	m.info.OutFrequency = 10 / (m.applyScale(float64(frame[13]), 7))
 
 	// Send L1 status request
 	cmd := make([]byte, 2)
 	cmd[0] = 0x46 //F
 	cmd[1] = 1
-	mk.sendCommand(cmd)
+	m.sendCommand(cmd)
 }
 
 // Decodes AC frame.
-func (mk *mk2Ser) acDecode(frame []byte) {
-	mk.info.InVoltage = mk.applyScale(getSigned(frame[5:7]), 0)
-	mk.info.InCurrent = mk.applyScale(getSigned(frame[7:9]), 1)
-	mk.info.OutVoltage = mk.applyScale(getSigned(frame[9:11]), 2)
-	mk.info.OutCurrent = mk.applyScale(getSigned(frame[11:13]), 3)
+func (m *mk2Ser) acDecode(frame []byte) {
+	m.info.InVoltage = m.applyScale(getSigned(frame[5:7]), 0)
+	m.info.InCurrent = m.applyScale(getSigned(frame[7:9]), 1)
+	m.info.OutVoltage = m.applyScale(getSigned(frame[9:11]), 2)
+	m.info.OutCurrent = m.applyScale(getSigned(frame[11:13]), 3)
 
 	if frame[13] == 0xff {
-		mk.info.InFrequency = 0
+		m.info.InFrequency = 0
 	} else {
-		mk.info.InFrequency = 10 / (mk.applyScale(float64(frame[13]), 8))
+		m.info.InFrequency = 10 / (m.applyScale(float64(frame[13]), 8))
 	}
 
 	// Send status request
 	cmd := make([]byte, 1)
 	cmd[0] = 0x4C //F
-	mk.sendCommand(cmd)
+	m.sendCommand(cmd)
 }
 
 // Decode charge state of battery.
-func (mk *mk2Ser) stateDecode(frame []byte) {
-	mk.info.ChargeState = mk.applyScale(getSigned(frame[1:3]), 13)
-	mk.updateReport()
+func (m *mk2Ser) stateDecode(frame []byte) {
+	m.info.ChargeState = m.applyScale(getSigned(frame[1:3]), 13)
+	m.updateReport()
 }
 
 // Decode the LED state frame.
-func (mk *mk2Ser) ledDecode(frame []byte) {
+func (m *mk2Ser) ledDecode(frame []byte) {
 
-	mk.info.LEDs = getLEDs(frame[0], frame[1])
+	m.info.LEDs = getLEDs(frame[0], frame[1])
 	// Send charge state request
 	cmd := make([]byte, 4)
 	cmd[0] = 0x57 //W
 	cmd[1] = 0x30
 	cmd[2] = 13
-	mk.sendCommand(cmd)
+	m.sendCommand(cmd)
 }
 
 // Adds active LEDs to list.
@@ -322,7 +308,7 @@ func getLEDs(ledsOn, ledsBlink byte) map[Led]LEDstate {
 }
 
 // Adds header and trailing crc for frame to send.
-func (mk2 *mk2Ser) sendCommand(data []byte) {
+func (m *mk2Ser) sendCommand(data []byte) {
 	l := len(data)
 	dataOut := make([]byte, l+3)
 	dataOut[0] = byte(l + 1)
@@ -334,9 +320,9 @@ func (mk2 *mk2Ser) sendCommand(data []byte) {
 	}
 	dataOut[l+2] = cr
 
-	_, err := mk2.p.Write(dataOut)
+	_, err := m.p.Write(dataOut)
 	if err != nil {
-		mk2.addError(fmt.Errorf("Write error: %v", err))
+		m.addError(fmt.Errorf("Write error: %v", err))
 	}
 }
 
@@ -346,8 +332,5 @@ func checkChecksum(l, t byte, d []byte) bool {
 	for i := 0; i < len(d); i++ {
 		cr = (cr + uint16(d[i])) % 256
 	}
-	if cr == 0 {
-		return true
-	}
-	return false
+	return cr == 0
 }
