@@ -3,14 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/hpdvanwyk/invertergui/mk2if"
-	"github.com/mikepb/go-serial"
 	"io"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/hpdvanwyk/invertergui/mk2if"
+	"github.com/mikepb/go-serial"
 )
 
 // Basic CLI to serve as example lib usage
@@ -46,10 +47,11 @@ func main() {
 	}
 	defer p.Close()
 	mk2, err := mk2if.NewMk2Connection(p)
-	defer mk2.Close()
 	if err != nil {
 		panic(err)
 	}
+	defer mk2.Close()
+
 	c := mk2.C()
 	sigterm := make(chan os.Signal, 1)
 	signal.Notify(sigterm, syscall.SIGTERM, os.Interrupt)

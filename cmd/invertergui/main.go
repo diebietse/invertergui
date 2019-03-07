@@ -76,10 +76,10 @@ func main() {
 	}
 	defer p.Close()
 	mk2, err := mk2if.NewMk2Connection(p)
-	defer mk2.Close()
 	if err != nil {
 		panic(err)
 	}
+	defer mk2.Close()
 
 	gui := webgui.NewWebGui(mk2)
 

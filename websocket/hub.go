@@ -36,7 +36,7 @@ func (h *Hub) Broadcast(message interface{}) error {
 	if err != nil {
 		return err
 	}
-	h.broadcast <- []byte(payload)
+	h.broadcast <- payload
 	return nil
 }
 

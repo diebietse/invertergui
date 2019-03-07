@@ -32,6 +32,7 @@ package webgui
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -49,7 +50,6 @@ const (
 )
 
 type WebGui struct {
-	respChan chan *mk2if.Mk2Info
 	stopChan chan struct{}
 
 	muninRespChan chan muninData
@@ -178,14 +178,16 @@ func (w *WebGui) Stop() {
 func (w *WebGui) dataPoll() {
 	pollChan := w.poller.C()
 	var muninValues muninData
-	s := &mk2if.Mk2Info{}
 	for {
 		select {
-		case s = <-pollChan:
+		case s := <-pollChan:
 			if s.Valid {
 				calcMuninValues(&muninValues, s)
 				w.pu.updatePrometheus(s)
-				w.hub.Broadcast(buildTemplateInput(s))
+				err := w.hub.Broadcast(buildTemplateInput(s))
+				if err != nil {
+					log.Printf("Could not send update to clients: %v", err)
+				}
 			}
 		case w.muninRespChan <- muninValues:
 			zeroMuninValues(&muninValues)
