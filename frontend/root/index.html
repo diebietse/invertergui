@@ -95,6 +95,9 @@
 
     <h1 class="display-4 text-center">Inverter GUI</h1>
     <div class="container" id="app">
+      <div class="alert alert-danger" role="alert" v-if="error.has_error">
+        {{ error.error_message }}
+      </div>
       <div class="row">
         <div class="col">
           <hr />
@@ -105,14 +108,18 @@
           <div class="card text-center">
             <div class="card-body">
               <h5 class="card-title">Output Current</h5>
-              <blockquote class="blockquote">{{ output_current }} A</blockquote>
+              <blockquote class="blockquote">
+                {{ state.output_current }} A
+              </blockquote>
             </div>
           </div>
 
           <div class="card text-center">
             <div class="card-body">
               <h5 class="card-title">Output Voltage</h5>
-              <blockquote class="blockquote">{{ output_voltage }} V</blockquote>
+              <blockquote class="blockquote">
+                {{ state.output_voltage }} V
+              </blockquote>
             </div>
           </div>
 
@@ -120,7 +127,7 @@
             <div class="card-body">
               <h5 class="card-title">Output Frequency</h5>
               <blockquote class="blockquote">
-                {{ output_frequency }} Hz
+                {{ state.output_frequency }} Hz
               </blockquote>
             </div>
           </div>
@@ -128,7 +135,9 @@
           <div class="card text-center">
             <div class="card-body">
               <h5 class="card-title">Output Power</h5>
-              <blockquote class="blockquote">{{ output_power }} W</blockquote>
+              <blockquote class="blockquote">
+                {{ state.output_power }} W
+              </blockquote>
             </div>
           </div>
         </div>
@@ -136,14 +145,18 @@
           <div class="card text-center">
             <div class="card-body">
               <h5 class="card-title">Input Current</h5>
-              <blockquote class="blockquote">{{ input_current }} A</blockquote>
+              <blockquote class="blockquote">
+                {{ state.input_current }} A
+              </blockquote>
             </div>
           </div>
 
           <div class="card text-center">
             <div class="card-body">
               <h5 class="card-title">Input Voltage</h5>
-              <blockquote class="blockquote">{{ input_voltage }} V</blockquote>
+              <blockquote class="blockquote">
+                {{ state.input_voltage }} V
+              </blockquote>
             </div>
           </div>
 
@@ -151,7 +164,7 @@
             <div class="card-body">
               <h5 class="card-title">Input Frequency</h5>
               <blockquote class="blockquote">
-                {{ input_frequency }} Hz
+                {{ state.input_frequency }} Hz
               </blockquote>
             </div>
           </div>
@@ -159,7 +172,9 @@
           <div class="card text-center">
             <div class="card-body">
               <h5 class="card-title">Input Power</h5>
-              <blockquote class="blockquote">{{ input_power }} W</blockquote>
+              <blockquote class="blockquote">
+                {{ state.input_power }} W
+              </blockquote>
             </div>
           </div>
         </div>
@@ -168,7 +183,7 @@
             <div class="card-body">
               <h5 class="card-title">Battery Current</h5>
               <blockquote class="blockquote">
-                {{ battery_current }} A
+                {{ state.battery_current }} A
               </blockquote>
             </div>
           </div>
@@ -177,7 +192,7 @@
             <div class="card-body">
               <h5 class="card-title">Battery Voltage</h5>
               <blockquote class="blockquote">
-                {{ battery_voltage }} V
+                {{ state.battery_voltage }} V
               </blockquote>
             </div>
           </div>
@@ -185,14 +200,18 @@
           <div class="card text-center">
             <div class="card-body">
               <h5 class="card-title">Battery Charge</h5>
-              <blockquote class="blockquote">{{ battery_charge }} %</blockquote>
+              <blockquote class="blockquote">
+                {{ state.battery_charge }} %
+              </blockquote>
             </div>
           </div>
 
           <div class="card text-center">
             <div class="card-body">
               <h5 class="card-title">Battery Power</h5>
-              <blockquote class="blockquote">{{ battery_power }} W</blockquote>
+              <blockquote class="blockquote">
+                {{ state.battery_power }} W
+              </blockquote>
             </div>
           </div>
         </div>
@@ -207,7 +226,7 @@
           <div class="card text-center">
             <div class="card-body">
               <h5 class="card-title">Mains</h5>
-              <span v-bind:class="[led_mains]"></span>
+              <span v-bind:class="[state.led_map.led_mains]"></span>
             </div>
           </div>
         </div>
@@ -215,7 +234,7 @@
           <div class="card text-center">
             <div class="card-body">
               <h5 class="card-title">Absorption</h5>
-              <span v-bind:class="[led_absorb]"></span>
+              <span v-bind:class="[state.led_map.led_absorb]"></span>
             </div>
           </div>
         </div>
@@ -223,7 +242,7 @@
           <div class="card text-center">
             <div class="card-body">
               <h5 class="card-title">Bulk</h5>
-              <span v-bind:class="[led_bulk]"></span>
+              <span v-bind:class="[state.led_map.led_bulk]"></span>
             </div>
           </div>
         </div>
@@ -231,7 +250,7 @@
           <div class="card text-center ">
             <div class="card-body">
               <h5 class="card-title">Float</h5>
-              <span v-bind:class="[led_float]"></span>
+              <span v-bind:class="[state.led_map.led_float]"></span>
             </div>
           </div>
         </div>
@@ -239,7 +258,7 @@
           <div class="card text-center">
             <div class="card-body">
               <h5 class="card-title">Inverter</h5>
-              <span v-bind:class="[led_inverter]"></span>
+              <span v-bind:class="[state.led_map.led_inverter]"></span>
             </div>
           </div>
         </div>
@@ -250,7 +269,7 @@
           <div class="card text-center">
             <div class="card-body">
               <h5 class="card-title">Overload</h5>
-              <span v-bind:class="[led_overload]"></span>
+              <span v-bind:class="[state.led_map.led_overload]"></span>
             </div>
           </div>
         </div>
@@ -258,7 +277,7 @@
           <div class="card text-center">
             <div class="card-body">
               <h5 class="card-title">Low Battery</h5>
-              <span v-bind:class="[led_bat_low]"></span>
+              <span v-bind:class="[state.led_map.led_bat_low]"></span>
             </div>
           </div>
         </div>
@@ -266,7 +285,7 @@
           <div class="card text-center">
             <div class="card-body">
               <h5 class="card-title">Temperature</h5>
-              <span v-bind:class="[led_over_temp]"></span>
+              <span v-bind:class="[state.led_map.led_over_temp]"></span>
             </div>
           </div>
         </div>
