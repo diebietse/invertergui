@@ -265,18 +265,18 @@ Example
 
 ## Nginx Proxy
 
-The following configuration works for Nginx to allow the `invertergui` to be proxied:
+The following configuration works for Nginx to allow the `invertergui` to be proxied.
 
 When using a stand HTTP or HTTPS port to expose the gui:
 
-```
+```Ini
 	location /invertergui {
 		return 302 /invertergui/;
 	}
 
 	location /invertergui/ {
 		proxy_pass http://localhost:8080/;
-		proxy_set_header        Host        $host;
+		proxy_set_header Host $host;
 	}
 
 	location /invertergui/ws {
@@ -297,13 +297,13 @@ When using a stand HTTP or HTTPS port to expose the gui:
 
 When using a non-stand HTTP or HTTPS port to expose the gui change the HTTP Host description:
 
-```
+```Ini
 		proxy_set_header Host $host:$server_port;
 ```
 
 The last four lines are optional, but is useful when debugging and logging connections:
 
-```
+```Ini
 		proxy_set_header Referer $http_referer;
 		proxy_set_header X-Forwarded-For $remote_addr;
 		proxy_set_header X-Forwarded-Proto $scheme;
