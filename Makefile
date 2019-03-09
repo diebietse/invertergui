@@ -26,7 +26,7 @@
 #OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-.PHONY: test test-race vet install gofmt docker statik lint clean
+.PHONY: test test-race vet install gofmt docker statik lint clean guimock invertergui invertercli build
 
 .DEFAULT_GOAL = build
 
