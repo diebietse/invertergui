@@ -31,6 +31,7 @@ This project makes use of [Go Modules](https://github.com/golang/go/wiki/Modules
 ## Port 8080
 
 The default HTTP server port is hosted on port 8080. This exposes the HTTP server that hosts the:
+
 - Web GUI
 - Munin Plugin
 - Prometheus Monitor
@@ -40,6 +41,7 @@ The default HTTP server port is hosted on port 8080. This exposes the HTTP serve
 The GUI location is at the root (http://localhost:8080/) of the HTTP server.
 
 Example output:
+
 ```
 Date: Mon, 17 Dec 2018 18:14:51 +0000
 LEDs:
@@ -66,6 +68,7 @@ Battery Charge: 100.000 %
 The Munin plugin location is at /munin (http://localhost:8080/munin).
 
 Example output:
+
 ```
 multigraph in_batvolt
 volt.value 13.154
@@ -94,10 +97,11 @@ freqout.value 50.026
 The Prometheus endpoint is at the default /metrics path (http://localhost:8080/metrics).
 
 Sample Prometheus yaml entry:
+
 ```yml
-  - job_name: 'victron'
-    static_configs:
-      - targets: ['localhost:8080']
+- job_name: "victron"
+  static_configs:
+    - targets: ["localhost:8080"]
 ```
 
 The metrics that are tracked:
@@ -254,6 +258,7 @@ process_virtual_memory_bytes 1.15101696e+08
 The intertergui application makes use of a serial tty device to monitor the Multiplus.
 
 Example
+
 ```
 -dev=/dev/ttyUSB0
 ```
