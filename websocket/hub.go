@@ -8,24 +8,24 @@ import (
 // clients.
 type Hub struct {
 	// Registered clients.
-	clients map[*Client]bool
+	clients map[*ClientHandler]bool
 
 	// Inbound messages from the clients.
 	broadcast chan []byte
 
 	// Register requests from the clients.
-	register chan *Client
+	register chan *ClientHandler
 
 	// Unregister requests from clients.
-	unregister chan *Client
+	unregister chan *ClientHandler
 }
 
 func NewHub() *Hub {
 	tmp := &Hub{
 		broadcast:  make(chan []byte),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
+		register:   make(chan *ClientHandler),
+		unregister: make(chan *ClientHandler),
+		clients:    make(map[*ClientHandler]bool),
 	}
 	go tmp.run()
 	return tmp

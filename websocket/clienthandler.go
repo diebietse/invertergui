@@ -24,8 +24,8 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-// Client is a middleman between the websocket connection and the hub.
-type Client struct {
+// ClientHandler is a middleman between the websocket connection and the hub.
+type ClientHandler struct {
 	hub *Hub
 
 	// The websocket connection.
@@ -40,7 +40,7 @@ type Client struct {
 // A goroutine running writePump is started for each connection. The
 // application ensures that there is at most one writer to a connection by
 // executing all writes from this goroutine.
-func (c *Client) writePump() {
+func (c *ClientHandler) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -81,7 +81,7 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: h, conn: conn, send: make(chan []byte, 256)}
+	client := &ClientHandler{hub: h, conn: conn, send: make(chan []byte, 256)}
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
