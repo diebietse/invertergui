@@ -257,3 +257,50 @@ Example
 ```
 -dev=/dev/ttyUSB0
 ```
+
+## Nginx Proxy
+
+The following configuration works for Nginx to allow the `invertergui` to be proxied:
+
+When using a stand HTTP or HTTPS port to expose the gui:
+
+```
+	location /invertergui {
+		return 302 /invertergui/;
+	}
+
+	location /invertergui/ {
+		proxy_pass http://localhost:8080/;
+		proxy_set_header        Host        $host;
+	}
+
+	location /invertergui/ws {
+		proxy_pass http://localhost:8080/ws;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade $http_upgrade;
+
+		proxy_set_header Connection "upgrade";
+		proxy_read_timeout 86400;
+		proxy_set_header Host $host;
+
+		proxy_set_header Referer $http_referer;
+		proxy_set_header X-Forwarded-For $remote_addr;
+		proxy_set_header X-Forwarded-Proto $scheme;
+		proxy_set_header X-Forwarded-Port $server_port;
+	}
+```
+
+When using a non-stand HTTP or HTTPS port to expose the gui change the HTTP Host description:
+
+```
+		proxy_set_header Host $host:$server_port;
+```
+
+The last four lines are optional, but is useful when debugging and logging connections:
+
+```
+		proxy_set_header Referer $http_referer;
+		proxy_set_header X-Forwarded-For $remote_addr;
+		proxy_set_header X-Forwarded-Proto $scheme;
+		proxy_set_header X-Forwarded-Port $server_port;
+```
