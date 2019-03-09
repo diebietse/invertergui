@@ -10,7 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/hpdvanwyk/invertergui/mk2if"
+	"github.com/diebietse/invertergui/mk2if"
 	"github.com/mikepb/go-serial"
 )
 

@@ -36,7 +36,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hpdvanwyk/invertergui/mk2if"
+	"github.com/diebietse/invertergui/mk2if"
 )
 
 func TestWebGui(t *testing.T) {

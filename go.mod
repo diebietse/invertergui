@@ -1,4 +1,4 @@
-module github.com/hpdvanwyk/invertergui
+module github.com/diebietse/invertergui
 
 require (
 	github.com/gorilla/websocket v1.4.0

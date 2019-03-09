@@ -31,7 +31,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package webgui
 
 import (
-	"github.com/hpdvanwyk/invertergui/mk2if"
+	"github.com/diebietse/invertergui/mk2if"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

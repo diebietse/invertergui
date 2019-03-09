@@ -5,9 +5,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/hpdvanwyk/invertergui/frontend"
-	"github.com/hpdvanwyk/invertergui/mk2if"
-	"github.com/hpdvanwyk/invertergui/webgui"
+	"github.com/diebietse/invertergui/frontend"
+	"github.com/diebietse/invertergui/mk2if"
+	"github.com/diebietse/invertergui/webgui"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
