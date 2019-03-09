@@ -14,6 +14,8 @@ import (
 
 func main() {
 	addr := flag.String("addr", ":8080", "TCP address to listen on.")
+	flag.Parse()
+
 	mk2 := mk2if.NewMk2Mock()
 	gui := webgui.NewWebGui(mk2)
 
