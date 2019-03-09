@@ -35,7 +35,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/hpdvanwyk/invertergui/mk2if"
+	"github.com/diebietse/invertergui/mk2if"
 )
 
 type muninData struct {

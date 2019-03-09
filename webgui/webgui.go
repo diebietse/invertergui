@@ -37,8 +37,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hpdvanwyk/invertergui/mk2if"
-	"github.com/hpdvanwyk/invertergui/websocket"
+	"github.com/diebietse/invertergui/mk2if"
+	"github.com/diebietse/invertergui/websocket"
 )
 
 const (
