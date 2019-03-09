@@ -1,7 +1,7 @@
 FROM golang:alpine as builder
 RUN apk add build-base linux-headers git
 RUN mkdir /build
-ADD . /build/
+COPY . /build/
 WORKDIR /build
 RUN go build -o invertergui ./cmd/invertergui
 FROM alpine
