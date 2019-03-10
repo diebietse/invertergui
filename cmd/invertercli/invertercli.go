@@ -12,6 +12,8 @@ import (
 
 	"github.com/diebietse/invertergui/mk2if"
 	"github.com/tarm/serial"
+	"github.com/diebietse/invertergui/mk2driver"
+	"github.com/mikepb/go-serial"
 )
 
 // Basic CLI to serve as example lib usage
@@ -44,7 +46,7 @@ func main() {
 		}
 	}
 	defer p.Close()
-	mk2, err := mk2if.NewMk2Connection(p)
+	mk2, err := mk2driver.NewMk2Connection(p)
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +69,7 @@ mainloop:
 	log.Printf("Closing connection")
 }
 
-func PrintInfo(info *mk2if.Mk2Info) {
+func PrintInfo(info *mk2driver.Mk2Info) {
 	out := fmt.Sprintf("Version: %v\n", info.Version)
 	out += fmt.Sprintf("Bat Volt: %.2fV Bat Cur: %.2fA \n", info.BatVoltage, info.BatCurrent)
 	out += fmt.Sprintf("In Volt: %.2fV In Cur: %.2fA In Freq %.2fHz\n", info.InVoltage, info.InCurrent, info.InFrequency)
@@ -76,7 +78,7 @@ func PrintInfo(info *mk2if.Mk2Info) {
 	out += fmt.Sprintf("Charge State: %.2f%%\n", info.ChargeState*100)
 	out += "LEDs state:"
 	for k, v := range info.LEDs {
-		out += fmt.Sprintf(" %s %s", mk2if.LedNames[k], mk2if.StateNames[v])
+		out += fmt.Sprintf(" %s %s", mk2driver.LedNames[k], mk2driver.StateNames[v])
 	}
 
 	out += "\nErrors:"

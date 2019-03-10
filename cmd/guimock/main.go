@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/diebietse/invertergui/frontend"
-	"github.com/diebietse/invertergui/mk2if"
+	"github.com/diebietse/invertergui/mk2driver"
 	"github.com/diebietse/invertergui/webgui"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -16,7 +16,7 @@ func main() {
 	addr := flag.String("addr", ":8080", "TCP address to listen on.")
 	flag.Parse()
 
-	mk2 := mk2if.NewMk2Mock()
+	mk2 := mk2driver.NewMk2Mock()
 	gui := webgui.NewWebGui(mk2)
 
 	http.Handle("/", frontend.NewStatic())

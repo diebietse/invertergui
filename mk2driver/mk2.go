@@ -1,4 +1,4 @@
-package mk2if
+package mk2driver
 
 import (
 	"errors"
@@ -26,7 +26,7 @@ type mk2Ser struct {
 	wg         sync.WaitGroup
 }
 
-func NewMk2Connection(dev io.ReadWriter) (Mk2If, error) {
+func NewMk2Connection(dev io.ReadWriter) (Mk2, error) {
 	mk2 := &mk2Ser{}
 	mk2.p = dev
 	mk2.info = &Mk2Info{}

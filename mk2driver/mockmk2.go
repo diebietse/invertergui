@@ -1,4 +1,4 @@
-package mk2if
+package mk2driver
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ type mock struct {
 	c chan *Mk2Info
 }
 
-func NewMk2Mock() Mk2If {
+func NewMk2Mock() Mk2 {
 	tmp := &mock{
 		c: make(chan *Mk2Info, 1),
 	}

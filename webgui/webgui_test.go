@@ -36,7 +36,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/diebietse/invertergui/mk2if"
+	"github.com/diebietse/invertergui/mk2driver"
 )
 
 func TestWebGui(t *testing.T) {
@@ -45,14 +45,14 @@ func TestWebGui(t *testing.T) {
 }
 
 type templateTest struct {
-	input  *mk2if.Mk2Info
+	input  *mk2driver.Mk2Info
 	output *templateInput
 }
 
 var fakenow = time.Date(2017, 1, 2, 3, 4, 5, 6, time.UTC)
 var templateInputTests = []templateTest{
 	{
-		input: &mk2if.Mk2Info{
+		input: &mk2driver.Mk2Info{
 			OutCurrent:   2.0,
 			InCurrent:    2.3,
 			OutVoltage:   230.0,
@@ -62,7 +62,7 @@ var templateInputTests = []templateTest{
 			InFrequency:  50,
 			OutFrequency: 50,
 			ChargeState:  1,
-			LEDs:         map[mk2if.Led]mk2if.LEDstate{mk2if.LedMain: mk2if.LedOn},
+			LEDs:         map[mk2driver.Led]mk2driver.LEDstate{mk2driver.LedMain: mk2driver.LedOn},
 			Errors:       nil,
 			Timestamp:    fakenow,
 		},

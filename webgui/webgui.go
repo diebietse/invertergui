@@ -37,7 +37,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/diebietse/invertergui/mk2if"
+	"github.com/diebietse/invertergui/mk2driver"
 	"github.com/diebietse/invertergui/websocket"
 )
 
@@ -53,14 +53,14 @@ type WebGui struct {
 	stopChan chan struct{}
 
 	muninRespChan chan muninData
-	poller        mk2if.Mk2If
+	poller        mk2driver.Mk2
 	wg            sync.WaitGroup
 	hub           *websocket.Hub
 
 	pu *prometheusUpdater
 }
 
-func NewWebGui(source mk2if.Mk2If) *WebGui {
+func NewWebGui(source mk2driver.Mk2) *WebGui {
 	w := new(WebGui)
 	w.muninRespChan = make(chan muninData)
 	w.stopChan = make(chan struct{})
@@ -111,15 +111,15 @@ func (w *WebGui) ServeHub(rw http.ResponseWriter, r *http.Request) {
 	w.hub.ServeHTTP(rw, r)
 }
 
-func ledName(led mk2if.Led) string {
-	name, ok := mk2if.LedNames[led]
+func ledName(led mk2driver.Led) string {
+	name, ok := mk2driver.LedNames[led]
 	if !ok {
 		return "Unknown led"
 	}
 	return name
 }
 
-func buildTemplateInput(status *mk2if.Mk2Info) *templateInput {
+func buildTemplateInput(status *mk2driver.Mk2Info) *templateInput {
 	outPower := status.OutVoltage * status.OutCurrent
 	inPower := status.InCurrent * status.InVoltage
 
@@ -145,20 +145,20 @@ func buildTemplateInput(status *mk2if.Mk2Info) *templateInput {
 		LedMap: map[string]string{},
 	}
 	for k, v := range status.LEDs {
-		if k == mk2if.LedOverload || k == mk2if.LedTemperature || k == mk2if.LedLowBattery {
+		if k == mk2driver.LedOverload || k == mk2driver.LedTemperature || k == mk2driver.LedLowBattery {
 			switch v {
-			case mk2if.LedOn:
+			case mk2driver.LedOn:
 				tmpInput.LedMap[ledName(k)] = LedRed
-			case mk2if.LedBlink:
+			case mk2driver.LedBlink:
 				tmpInput.LedMap[ledName(k)] = BlinkRed
 			default:
 				tmpInput.LedMap[ledName(k)] = LedOff
 			}
 		} else {
 			switch v {
-			case mk2if.LedOn:
+			case mk2driver.LedOn:
 				tmpInput.LedMap[ledName(k)] = LedGreen
-			case mk2if.LedBlink:
+			case mk2driver.LedBlink:
 				tmpInput.LedMap[ledName(k)] = BlinkGreen
 			default:
 				tmpInput.LedMap[ledName(k)] = LedOff

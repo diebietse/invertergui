@@ -1,4 +1,4 @@
-package mk2if
+package mk2driver
 
 import "time"
 
@@ -72,7 +72,7 @@ type Mk2Info struct {
 	Timestamp time.Time
 }
 
-type Mk2If interface {
+type Mk2 interface {
 	C() chan *Mk2Info
 	Close()
 }

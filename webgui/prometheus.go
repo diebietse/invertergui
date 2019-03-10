@@ -31,7 +31,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package webgui
 
 import (
-	"github.com/diebietse/invertergui/mk2if"
+	"github.com/diebietse/invertergui/mk2driver"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -117,7 +117,7 @@ func newPrometheusUpdater() *prometheusUpdater {
 	return tmp
 }
 
-func (pu *prometheusUpdater) updatePrometheus(newStatus *mk2if.Mk2Info) {
+func (pu *prometheusUpdater) updatePrometheus(newStatus *mk2driver.Mk2Info) {
 	s := newStatus
 	pu.batteryVoltage.Set(s.BatVoltage)
 	pu.batteryCharge.Set(newStatus.ChargeState * 100)
