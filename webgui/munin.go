@@ -35,11 +35,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/diebietse/invertergui/mk2if"
+	"github.com/diebietse/invertergui/mk2driver"
 )
 
 type muninData struct {
-	status       mk2if.Mk2Info
+	status       mk2driver.Mk2Info
 	timesUpdated int
 }
 
@@ -171,7 +171,7 @@ freqout.label Out frequency (Hz)
 }
 
 //Munin only samples once every 5 minutes so averages have to be calculated for some values.
-func calcMuninValues(muninDat *muninData, newStatus *mk2if.Mk2Info) {
+func calcMuninValues(muninDat *muninData, newStatus *mk2driver.Mk2Info) {
 	muninDat.timesUpdated++
 	muninVal := &muninDat.status
 	muninVal.OutCurrent += newStatus.OutCurrent

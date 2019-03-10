@@ -38,7 +38,7 @@ import (
 	"net/http"
 
 	"github.com/diebietse/invertergui/frontend"
-	"github.com/diebietse/invertergui/mk2if"
+	"github.com/diebietse/invertergui/mk2driver"
 	"github.com/diebietse/invertergui/webgui"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tarm/serial"
@@ -73,7 +73,7 @@ func main() {
 		}
 	}
 	defer p.Close()
-	mk2, err := mk2if.NewMk2Connection(p)
+	mk2, err := mk2driver.NewMk2Connection(p)
 	if err != nil {
 		panic(err)
 	}
