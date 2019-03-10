@@ -28,32 +28,49 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package webgui
+package munin
 
 import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/diebietse/invertergui/mk2driver"
 )
 
+type Munin struct {
+	mk2driver.Mk2
+	muninResponse chan *muninData
+}
+
 type muninData struct {
-	status       mk2driver.Mk2Info
+	status       *mk2driver.Mk2Info
 	timesUpdated int
 }
 
-func (w *WebGui) ServeMuninHTTP(rw http.ResponseWriter, r *http.Request) {
-	muninDat := <-w.muninRespChan
+func NewMunin(mk2 mk2driver.Mk2) *Munin {
+	m := &Munin{
+		Mk2:           mk2,
+		muninResponse: make(chan *muninData),
+	}
+
+	go m.run()
+
+	return m
+}
+
+func (m *Munin) ServeMuninHTTP(rw http.ResponseWriter, r *http.Request) {
+	muninDat := <-m.muninResponse
 	if muninDat.timesUpdated == 0 {
 		rw.WriteHeader(500)
 		_, _ = rw.Write([]byte("No data to return.\n"))
 		return
 	}
-	calcMuninAverages(&muninDat)
+	calcMuninAverages(muninDat)
 
 	status := muninDat.status
-	tmpInput := buildTemplateInput(&status)
+	tmpInput := buildTemplateInput(status)
 	outputBuf := &bytes.Buffer{}
 	fmt.Fprintf(outputBuf, "multigraph in_batvolt\n")
 	fmt.Fprintf(outputBuf, "volt.value %s\n", tmpInput.BatVoltage)
@@ -82,98 +99,35 @@ func (w *WebGui) ServeMuninHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (w *WebGui) ServeMuninConfigHTTP(rw http.ResponseWriter, r *http.Request) {
-	output := `multigraph in_batvolt
-graph_title Battery Voltage
-graph_vlabel Voltage (V)
-graph_category inverter
-graph_info Battery voltage
-
-volt.info Voltage of battery
-volt.label Voltage of battery (V)
-
-multigraph in_batcharge
-graph_title Battery Charge
-graph_vlabel Charge (%)
-graph_category inverter
-graph_info Battery charge
-
-charge.info Estimated charge of battery
-charge.label Battery charge (%)
-
-multigraph in_batcurrent
-graph_title Battery Current
-graph_vlabel Current (A)
-graph_category inverter
-graph_info Battery current
-
-current.info Battery current
-current.label Battery current (A)
-
-multigraph in_batpower
-graph_title Battery Power
-graph_vlabel Power (W)
-graph_category inverter
-graph_info Battery power
-
-power.info Battery power
-power.label Battery power (W)
-
-multigraph in_mainscurrent
-graph_title Mains Current
-graph_vlabel Current (A)
-graph_category inverter
-graph_info Mains current
-
-currentin.info Input current
-currentin.label Input current (A)
-currentout.info Output current
-currentout.label Output current (A)
-
-multigraph in_mainsvoltage
-graph_title Mains Voltage
-graph_vlabel Voltage (V)
-graph_category inverter
-graph_info Mains voltage
-
-voltagein.info Input voltage
-voltagein.label Input voltage (V)
-voltageout.info Output voltage
-voltageout.label Output voltage (V)
-
-multigraph in_mainspower
-graph_title Mains Power
-graph_vlabel Power (VA)
-graph_category inverter
-graph_info Mains power
-
-powerin.info Input power
-powerin.label Input power (VA)
-powerout.info Output power
-powerout.label Output power (VA)
-
-multigraph in_mainsfreq
-graph_title Mains frequency
-graph_vlabel Frequency (Hz)
-graph_category inverter
-graph_info Mains frequency
-
-freqin.info In frequency
-freqin.label In frequency (Hz)
-freqout.info Out frequency
-freqout.label Out frequency (Hz)
-`
-
+func (m *Munin) ServeMuninConfigHTTP(rw http.ResponseWriter, r *http.Request) {
+	output := muninConfig
 	_, err := rw.Write([]byte(output))
 	if err != nil {
 		fmt.Printf("%v\n", err)
 	}
 }
 
+func (m *Munin) run() {
+	muninValues := &muninData{
+		status: &mk2driver.Mk2Info{},
+	}
+	for {
+		select {
+		case e := <-m.C():
+			if e.Valid {
+				calcMuninValues(muninValues, e)
+
+			}
+		case m.muninResponse <- muninValues:
+			zeroMuninValues(muninValues)
+		}
+	}
+}
+
 //Munin only samples once every 5 minutes so averages have to be calculated for some values.
 func calcMuninValues(muninDat *muninData, newStatus *mk2driver.Mk2Info) {
 	muninDat.timesUpdated++
-	muninVal := &muninDat.status
+	muninVal := muninDat.status
 	muninVal.OutCurrent += newStatus.OutCurrent
 	muninVal.InCurrent += newStatus.InCurrent
 	muninVal.BatCurrent += newStatus.BatCurrent
@@ -189,7 +143,7 @@ func calcMuninValues(muninDat *muninData, newStatus *mk2driver.Mk2Info) {
 }
 
 func calcMuninAverages(muninDat *muninData) {
-	muninVal := &muninDat.status
+	muninVal := muninDat.status
 	muninVal.OutCurrent /= float64(muninDat.timesUpdated)
 	muninVal.InCurrent /= float64(muninDat.timesUpdated)
 	muninVal.BatCurrent /= float64(muninDat.timesUpdated)
@@ -201,7 +155,7 @@ func calcMuninAverages(muninDat *muninData) {
 
 func zeroMuninValues(muninDat *muninData) {
 	muninDat.timesUpdated = 0
-	muninVal := &muninDat.status
+	muninVal := muninDat.status
 	muninVal.OutCurrent = 0
 	muninVal.InCurrent = 0
 	muninVal.BatCurrent = 0
@@ -214,4 +168,51 @@ func zeroMuninValues(muninDat *muninData) {
 	muninVal.OutFrequency = 0
 
 	muninVal.ChargeState = 0
+}
+
+type templateInput struct {
+	Date string `json:"date"`
+
+	OutCurrent string `json:"output_current"`
+	OutVoltage string `json:"output_voltage"`
+	OutPower   string `json:"output_power"`
+
+	InCurrent string `json:"input_current"`
+	InVoltage string `json:"input_voltage"`
+	InPower   string `json:"input_power"`
+
+	InMinOut string
+
+	BatVoltage string `json:"battery_voltage"`
+	BatCurrent string `json:"battery_current"`
+	BatPower   string `json:"battery_power"`
+	BatCharge  string `json:"battery_charge"`
+
+	InFreq  string `json:"input_frequency"`
+	OutFreq string `json:"output_frequency"`
+}
+
+func buildTemplateInput(status *mk2driver.Mk2Info) *templateInput {
+	outPower := status.OutVoltage * status.OutCurrent
+	inPower := status.InCurrent * status.InVoltage
+
+	newInput := &templateInput{
+		Date:       status.Timestamp.Format(time.RFC1123Z),
+		OutCurrent: fmt.Sprintf("%.2f", status.OutCurrent),
+		OutVoltage: fmt.Sprintf("%.2f", status.OutVoltage),
+		OutPower:   fmt.Sprintf("%.2f", outPower),
+		InCurrent:  fmt.Sprintf("%.2f", status.InCurrent),
+		InVoltage:  fmt.Sprintf("%.2f", status.InVoltage),
+		InFreq:     fmt.Sprintf("%.2f", status.InFrequency),
+		OutFreq:    fmt.Sprintf("%.2f", status.OutFrequency),
+		InPower:    fmt.Sprintf("%.2f", inPower),
+
+		InMinOut: fmt.Sprintf("%.2f", inPower-outPower),
+
+		BatCurrent: fmt.Sprintf("%.2f", status.BatCurrent),
+		BatVoltage: fmt.Sprintf("%.2f", status.BatVoltage),
+		BatPower:   fmt.Sprintf("%.2f", status.BatVoltage*status.BatCurrent),
+		BatCharge:  fmt.Sprintf("%.2f", status.ChargeState*100),
+	}
+	return newInput
 }

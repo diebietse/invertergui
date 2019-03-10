@@ -1,7 +1,6 @@
 package mk2driver
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -64,7 +63,6 @@ func (m *mock) genMockValues() {
 		if mult < 0 {
 			mult = 1.0
 		}
-		fmt.Printf("Sending\n")
 		m.c <- input
 		time.Sleep(1 * time.Second)
 	}

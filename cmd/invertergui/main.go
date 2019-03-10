@@ -38,8 +38,12 @@ import (
 	"net/http"
 
 	"github.com/diebietse/invertergui/frontend"
+	"github.com/diebietse/invertergui/mk2core"
 	"github.com/diebietse/invertergui/mk2driver"
-	"github.com/diebietse/invertergui/webgui"
+	"github.com/diebietse/invertergui/plugins/cli"
+	"github.com/diebietse/invertergui/plugins/munin"
+	"github.com/diebietse/invertergui/plugins/prometheus"
+	"github.com/diebietse/invertergui/plugins/webui"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tarm/serial"
 )
@@ -50,14 +54,44 @@ func main() {
 	tcp := flag.Bool("tcp", false, "Use TCP instead of TTY")
 	ip := flag.String("ip", "localhost:8139", "IP to connect when using tcp connection.")
 	dev := flag.String("dev", "/dev/ttyUSB0", "TTY device to use.")
+	mock := flag.Bool("mock", false, "Creates a mock device  for test puposes")
+	cliEnable := flag.Bool("cli", false, "Enable CLI output")
 	flag.Parse()
 
+	var mk2 mk2driver.Mk2
+	if *mock {
+		mk2 = mk2driver.NewMk2Mock()
+	} else {
+		mk2 = getMk2Device(*tcp, *ip, *dev)
+	}
+
+	defer mk2.Close()
+
+	core := mk2core.NewCore(mk2)
+
+	if *cliEnable {
+		cli.NewCli(core.NewSubscription())
+	}
+
+	gui := webui.NewWebGui(core.NewSubscription())
+	mu := munin.NewMunin(core.NewSubscription())
+	prometheus.NewPrometheus(core.NewSubscription())
+
+	http.Handle("/", frontend.NewStatic())
+	http.Handle("/ws", http.HandlerFunc(gui.ServeHub))
+	http.Handle("/munin", http.HandlerFunc(mu.ServeMuninHTTP))
+	http.Handle("/muninconfig", http.HandlerFunc(mu.ServeMuninConfigHTTP))
+	http.Handle("/metrics", promhttp.Handler())
+	log.Fatal(http.ListenAndServe(*addr, nil))
+}
+
+func getMk2Device(tcp bool, ip, dev string) mk2driver.Mk2 {
 	var p io.ReadWriteCloser
 	var err error
 	var tcpAddr *net.TCPAddr
 
-	if *tcp {
-		tcpAddr, err = net.ResolveTCPAddr("tcp", *ip)
+	if tcp {
+		tcpAddr, err = net.ResolveTCPAddr("tcp", ip)
 		if err != nil {
 			panic(err)
 		}
@@ -66,25 +100,16 @@ func main() {
 			panic(err)
 		}
 	} else {
-		serialConfig := &serial.Config{Name: *dev, Baud: 2400}
+		serialConfig := &serial.Config{Name: dev, Baud: 2400}
 		p, err = serial.OpenPort(serialConfig)
 		if err != nil {
 			panic(err)
 		}
 	}
-	defer p.Close()
 	mk2, err := mk2driver.NewMk2Connection(p)
 	if err != nil {
 		panic(err)
 	}
-	defer mk2.Close()
 
-	gui := webgui.NewWebGui(mk2)
-
-	http.Handle("/", frontend.NewStatic())
-	http.Handle("/ws", http.HandlerFunc(gui.ServeHub))
-	http.Handle("/munin", http.HandlerFunc(gui.ServeMuninHTTP))
-	http.Handle("/muninconfig", http.HandlerFunc(gui.ServeMuninConfigHTTP))
-	http.Handle("/metrics", promhttp.Handler())
-	log.Fatal(http.ListenAndServe(*addr, nil))
+	return mk2
 }
