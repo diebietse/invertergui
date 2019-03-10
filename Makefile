@@ -26,20 +26,12 @@
 #OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-.PHONY: test test-race vet install gofmt docker statik lint clean guimock invertergui invertercli build
+.PHONY: test test-race vet install gofmt docker statik lint clean invertergui
 
-.DEFAULT_GOAL = build
-
-guimock:
-	go build ./cmd/guimock/
+.DEFAULT_GOAL = invertergui
 
 invertergui:
 	go build ./cmd/invertergui/
-
-invertercli:
-	go build ./cmd/invertercli/
-
-build: guimock invertergui invertercli
 
 all: build gofmt test
 
@@ -62,4 +54,4 @@ lint:
 	golangci-lint run
 
 clean:
-	rm ./guimock ./invertercli ./invertergui
+	rm ./invertergui

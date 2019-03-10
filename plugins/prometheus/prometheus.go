@@ -28,14 +28,15 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package webgui
+package prometheus
 
 import (
 	"github.com/diebietse/invertergui/mk2driver"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-type prometheusUpdater struct {
+type Prometheus struct {
+	mk2driver.Mk2
 	batteryVoltage  prometheus.Gauge
 	batteryCharge   prometheus.Gauge
 	batteryCurrent  prometheus.Gauge
@@ -50,8 +51,9 @@ type prometheusUpdater struct {
 	mainsFreqOut    prometheus.Gauge
 }
 
-func newPrometheusUpdater() *prometheusUpdater {
-	tmp := &prometheusUpdater{
+func NewPrometheus(mk2 mk2driver.Mk2) {
+	tmp := &Prometheus{
+		Mk2: mk2,
 		batteryVoltage: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "battery_voltage_v",
 			Help: "Voltage of the battery.",
@@ -101,7 +103,8 @@ func newPrometheusUpdater() *prometheusUpdater {
 			Help: "Mains frequency at inverter output",
 		}),
 	}
-	prometheus.MustRegister(tmp.batteryVoltage,
+	prometheus.MustRegister(
+		tmp.batteryVoltage,
 		tmp.batteryCharge,
 		tmp.batteryCurrent,
 		tmp.batteryPower,
@@ -114,21 +117,30 @@ func newPrometheusUpdater() *prometheusUpdater {
 		tmp.mainsFreqIn,
 		tmp.mainsFreqOut,
 	)
-	return tmp
+
+	go tmp.run()
 }
 
-func (pu *prometheusUpdater) updatePrometheus(newStatus *mk2driver.Mk2Info) {
+func (p *Prometheus) run() {
+	for e := range p.C() {
+		if e.Valid {
+			p.updatePrometheus(e)
+		}
+	}
+}
+
+func (p *Prometheus) updatePrometheus(newStatus *mk2driver.Mk2Info) {
 	s := newStatus
-	pu.batteryVoltage.Set(s.BatVoltage)
-	pu.batteryCharge.Set(newStatus.ChargeState * 100)
-	pu.batteryCurrent.Set(s.BatCurrent)
-	pu.batteryPower.Set(s.BatVoltage * s.BatCurrent)
-	pu.mainsCurrentIn.Set(s.InCurrent)
-	pu.mainsCurrentOut.Set(s.OutCurrent)
-	pu.mainsVoltageIn.Set(s.InVoltage)
-	pu.mainsVoltageOut.Set(s.OutVoltage)
-	pu.mainsPowerIn.Set(s.InVoltage * s.InCurrent)
-	pu.mainsPowerOut.Set(s.OutVoltage * s.OutCurrent)
-	pu.mainsFreqIn.Set(s.InFrequency)
-	pu.mainsFreqOut.Set(s.OutFrequency)
+	p.batteryVoltage.Set(s.BatVoltage)
+	p.batteryCharge.Set(newStatus.ChargeState * 100)
+	p.batteryCurrent.Set(s.BatCurrent)
+	p.batteryPower.Set(s.BatVoltage * s.BatCurrent)
+	p.mainsCurrentIn.Set(s.InCurrent)
+	p.mainsCurrentOut.Set(s.OutCurrent)
+	p.mainsVoltageIn.Set(s.InVoltage)
+	p.mainsVoltageOut.Set(s.OutVoltage)
+	p.mainsPowerIn.Set(s.InVoltage * s.InCurrent)
+	p.mainsPowerOut.Set(s.OutVoltage * s.OutCurrent)
+	p.mainsFreqIn.Set(s.InFrequency)
+	p.mainsFreqOut.Set(s.OutFrequency)
 }

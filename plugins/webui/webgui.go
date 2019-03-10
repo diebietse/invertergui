@@ -28,7 +28,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package webgui
+package webui
 
 import (
 	"fmt"
@@ -50,24 +50,19 @@ const (
 )
 
 type WebGui struct {
+	mk2driver.Mk2
 	stopChan chan struct{}
 
-	muninRespChan chan muninData
-	poller        mk2driver.Mk2
-	wg            sync.WaitGroup
-	hub           *websocket.Hub
-
-	pu *prometheusUpdater
+	wg  sync.WaitGroup
+	hub *websocket.Hub
 }
 
 func NewWebGui(source mk2driver.Mk2) *WebGui {
-	w := new(WebGui)
-	w.muninRespChan = make(chan muninData)
-	w.stopChan = make(chan struct{})
-	w.poller = source
-	w.pu = newPrometheusUpdater()
-	w.hub = websocket.NewHub()
-
+	w := &WebGui{
+		stopChan: make(chan struct{}),
+		Mk2:      source,
+		hub:      websocket.NewHub(),
+	}
 	w.wg.Add(1)
 	go w.dataPoll()
 	return w
@@ -97,14 +92,6 @@ type templateInput struct {
 	OutFreq string `json:"output_frequency"`
 
 	LedMap map[string]string `json:"led_map"`
-}
-
-func (w *WebGui) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	http.ServeFile(rw, r, "./frontend/index.html")
-}
-
-func (w *WebGui) ServeJS(rw http.ResponseWriter, r *http.Request) {
-	http.ServeFile(rw, r, "./frontend/js/controller.js")
 }
 
 func (w *WebGui) ServeHub(rw http.ResponseWriter, r *http.Request) {
@@ -176,21 +163,15 @@ func (w *WebGui) Stop() {
 // dataPoll waits for data from the w.poller channel. It will send its currently stored status
 // to respChan if anything reads from it.
 func (w *WebGui) dataPoll() {
-	pollChan := w.poller.C()
-	var muninValues muninData
 	for {
 		select {
-		case s := <-pollChan:
+		case s := <-w.C():
 			if s.Valid {
-				calcMuninValues(&muninValues, s)
-				w.pu.updatePrometheus(s)
 				err := w.hub.Broadcast(buildTemplateInput(s))
 				if err != nil {
 					log.Printf("Could not send update to clients: %v", err)
 				}
 			}
-		case w.muninRespChan <- muninValues:
-			zeroMuninValues(&muninValues)
 		case <-w.stopChan:
 			w.wg.Done()
 			return
