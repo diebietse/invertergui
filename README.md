@@ -4,6 +4,10 @@ The invertergui allows the monitoring of a [Victron Multiplus](https://www.victr
 
 The [`ncthompson/invertergui`](https://hub.docker.com/r/ncthompson/invertergui) docker image is a build of this repository.
 
+## Demo
+
+![demo](https://rawcdn.githack.com/diebietse/invertergui/c856c451cd5c926b588914583bc4ab1498b7da99/invertergui_demo.gif "Invertergui Demo")
+
 ## Quick Start
 
 ```
