@@ -11,7 +11,7 @@ import (
 	"syscall"
 
 	"github.com/diebietse/invertergui/mk2if"
-	"github.com/mikepb/go-serial"
+	"github.com/tarm/serial"
 )
 
 // Basic CLI to serve as example lib usage
@@ -37,10 +37,8 @@ func main() {
 			panic(err)
 		}
 	} else {
-		options := serial.RawOptions
-		options.BitRate = 2400
-		options.Mode = serial.MODE_READ_WRITE
-		p, err = options.Open(*dev)
+		serialConfig := &serial.Config{Name: *dev, Baud: 2400}
+		p, err = serial.OpenPort(serialConfig)
 		if err != nil {
 			panic(err)
 		}
