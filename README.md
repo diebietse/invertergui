@@ -2,7 +2,7 @@
 
 The invertergui allows the monitoring of a [Victron Multiplus](https://www.victronenergy.com/inverters-chargers/multiplus-12v-24v-48v-800va-3kva) via the [MK3/MK2 USB](https://www.victronenergy.com/accessories/interface-mk3-usb) or the MK2 RS232.
 
-The [`ncthompson/invertergui`](https://hub.docker.com/r/ncthompson/invertergui) docker image is a build of this repository.
+The [`diebietse/invertergui`](https://hub.docker.com/r/diebietse/invertergui) docker image is a build of this repository.
 
 ## Demo
 
@@ -10,8 +10,8 @@ The [`ncthompson/invertergui`](https://hub.docker.com/r/ncthompson/invertergui) 
 
 ## Quick Start
 
-```
-docker run --device /dev/ttyUSB0:/dev/ttyUSB0 -p 8080:8080 ncthompson/invertergui
+```console
+docker run --name invertergui --device /dev/ttyUSB0:/dev/ttyUSB0 -p 8080:8080 diebietse/invertergui
 ```
 
 ## Requirements
