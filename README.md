@@ -1,5 +1,7 @@
 # Inverter GUI
 
+[![Build Status](https://travis-ci.org/diebietse/invertergui.svg?branch=master)](https://travis-ci.org/diebietse/invertergui)
+
 The invertergui allows the monitoring of a [Victron Multiplus](https://www.victronenergy.com/inverters-chargers/multiplus-12v-24v-48v-800va-3kva) via the [MK3/MK2 USB](https://www.victronenergy.com/accessories/interface-mk3-usb) or the MK2 RS232.
 
 The [`diebietse/invertergui`](https://hub.docker.com/r/diebietse/invertergui) docker image is a build of this repository.
