@@ -313,3 +313,9 @@ The last four lines are optional, but is useful when debugging and logging conne
 		proxy_set_header X-Forwarded-Proto $scheme;
 		proxy_set_header X-Forwarded-Port $server_port;
 ```
+
+## Grafana
+
+This repos includes a [Grafana](https://grafana.com/) dashboard in the [grafana folder](./grafana/prometheus-dashboard.json) that you can import. This is useful if you are using prometheus to log your data and want to display it in a nice way.
+
+![grafana](https://rawcdn.githack.com/diebietse/invertergui/e20f8fb9161758cd12de95d675aee0ed2e044d8e/grafana/dashboard.png "Grafana Dashboard")
