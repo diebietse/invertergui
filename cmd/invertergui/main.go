@@ -36,6 +36,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 
 	"github.com/diebietse/invertergui/frontend"
 	"github.com/diebietse/invertergui/mk2core"
@@ -49,22 +50,14 @@ import (
 )
 
 func main() {
+	source := flag.String("source", "serial", "Set the source of data for the inverter gui. \"serial\", \"tcp\" or \"mock\"")
 	addr := flag.String("addr", ":8080", "TCP address to listen on.")
-
-	tcp := flag.Bool("tcp", false, "Use TCP instead of TTY")
 	ip := flag.String("ip", "localhost:8139", "IP to connect when using tcp connection.")
 	dev := flag.String("dev", "/dev/ttyUSB0", "TTY device to use.")
-	mock := flag.Bool("mock", false, "Creates a mock device  for test puposes")
 	cliEnable := flag.Bool("cli", false, "Enable CLI output")
 	flag.Parse()
 
-	var mk2 mk2driver.Mk2
-	if *mock {
-		mk2 = mk2driver.NewMk2Mock()
-	} else {
-		mk2 = getMk2Device(*tcp, *ip, *dev)
-	}
-
+	mk2 := getMk2Device(*source, *ip, *dev)
 	defer mk2.Close()
 
 	core := mk2core.NewCore(mk2)
@@ -85,12 +78,19 @@ func main() {
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }
 
-func getMk2Device(tcp bool, ip, dev string) mk2driver.Mk2 {
+func getMk2Device(source, ip, dev string) mk2driver.Mk2 {
 	var p io.ReadWriteCloser
 	var err error
 	var tcpAddr *net.TCPAddr
 
-	if tcp {
+	switch source {
+	case "serial":
+		serialConfig := &serial.Config{Name: dev, Baud: 2400}
+		p, err = serial.OpenPort(serialConfig)
+		if err != nil {
+			panic(err)
+		}
+	case "tcp":
 		tcpAddr, err = net.ResolveTCPAddr("tcp", ip)
 		if err != nil {
 			panic(err)
@@ -99,13 +99,13 @@ func getMk2Device(tcp bool, ip, dev string) mk2driver.Mk2 {
 		if err != nil {
 			panic(err)
 		}
-	} else {
-		serialConfig := &serial.Config{Name: dev, Baud: 2400}
-		p, err = serial.OpenPort(serialConfig)
-		if err != nil {
-			panic(err)
-		}
+	case "mock":
+		return mk2driver.NewMk2Mock()
+	default:
+		log.Printf("Invalid source selection: %v\nUse \"serial\", \"tcp\" or \"mock\"", source)
+		os.Exit(1)
 	}
+
 	mk2, err := mk2driver.NewMk2Connection(p)
 	if err != nil {
 		panic(err)
