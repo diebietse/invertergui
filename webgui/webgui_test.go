@@ -39,11 +39,6 @@ import (
 	"github.com/diebietse/invertergui/mk2if"
 )
 
-func TestWebGui(t *testing.T) {
-	t.Skip("Not yet implimented")
-	//TODO figure out how to test template output.
-}
-
 type templateTest struct {
 	input  *mk2if.Mk2Info
 	output *templateInput
