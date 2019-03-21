@@ -1,6 +1,7 @@
 # Inverter GUI
 
 [![Build Status](https://travis-ci.org/diebietse/invertergui.svg?branch=master)](https://travis-ci.org/diebietse/invertergui)
+[![codecov](https://codecov.io/gh/diebietse/invertergui/branch/master/graph/badge.svg)](https://codecov.io/gh/diebietse/invertergui)
 
 The invertergui allows the monitoring of a [Victron Multiplus](https://www.victronenergy.com/inverters-chargers/multiplus-12v-24v-48v-800va-3kva) via the [MK3/MK2 USB](https://www.victronenergy.com/accessories/interface-mk3-usb) or the MK2 RS232.
 
