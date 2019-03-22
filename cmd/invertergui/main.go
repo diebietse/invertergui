@@ -38,13 +38,13 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/diebietse/invertergui/frontend"
 	"github.com/diebietse/invertergui/mk2core"
 	"github.com/diebietse/invertergui/mk2driver"
 	"github.com/diebietse/invertergui/plugins/cli"
 	"github.com/diebietse/invertergui/plugins/munin"
 	"github.com/diebietse/invertergui/plugins/prometheus"
 	"github.com/diebietse/invertergui/plugins/webui"
+	"github.com/diebietse/invertergui/plugins/webui/static"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tarm/serial"
 )
@@ -70,7 +70,7 @@ func main() {
 	mu := munin.NewMunin(core.NewSubscription())
 	prometheus.NewPrometheus(core.NewSubscription())
 
-	http.Handle("/", frontend.NewStatic())
+	http.Handle("/", static.New())
 	http.Handle("/ws", http.HandlerFunc(gui.ServeHub))
 	http.Handle("/munin", http.HandlerFunc(mu.ServeMuninHTTP))
 	http.Handle("/muninconfig", http.HandlerFunc(mu.ServeMuninConfigHTTP))

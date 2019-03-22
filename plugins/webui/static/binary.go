@@ -1,4 +1,4 @@
-package frontend
+package static
 
 import (
 	"github.com/rakyll/statik/fs"
@@ -7,7 +7,8 @@ import (
 	"net/http"
 )
 
-func NewStatic() http.Handler {
+// New exports the static part of the webgui that is served via statik
+func New() http.Handler {
 	statikFs, err := fs.New()
 	if err != nil {
 		log.Fatal(err)
