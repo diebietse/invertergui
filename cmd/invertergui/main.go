@@ -66,15 +66,20 @@ func main() {
 		cli.NewCli(core.NewSubscription())
 	}
 
+	// Webgui
 	gui := webui.NewWebGui(core.NewSubscription())
-	mu := munin.NewMunin(core.NewSubscription())
-	prometheus.NewPrometheus(core.NewSubscription())
-
 	http.Handle("/", static.New())
 	http.Handle("/ws", http.HandlerFunc(gui.ServeHub))
+
+	// Munin
+	mu := munin.NewMunin(core.NewSubscription())
 	http.Handle("/munin", http.HandlerFunc(mu.ServeMuninHTTP))
 	http.Handle("/muninconfig", http.HandlerFunc(mu.ServeMuninConfigHTTP))
+
+	// Prometheus
+	prometheus.NewPrometheus(core.NewSubscription())
 	http.Handle("/metrics", promhttp.Handler())
+
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }
 
