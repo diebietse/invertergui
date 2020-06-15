@@ -51,7 +51,10 @@ statik:
 	statik -f -p=frontend -src=./frontend/root
 
 lint:
-	golangci-lint run
+	docker run --rm -it \
+		-w /src -v $(shell pwd):/src \
+		golangci/golangci-lint:v1.26 golangci-lint run \
+		-v -c .golangci.yml
 
 clean:
 	rm ./invertergui
