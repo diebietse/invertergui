@@ -26,7 +26,7 @@
 #OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-.PHONY: test test-race vet install gofmt docker statik lint clean invertergui
+.PHONY: test test-race vet install gofmt docker statik lint clean invertergui vendor
 
 .DEFAULT_GOAL = invertergui
 
@@ -55,3 +55,7 @@ lint:
 
 clean:
 	rm ./invertergui
+
+vendor:
+	go mod tidy
+	go mod vendor
