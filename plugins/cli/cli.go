@@ -1,11 +1,11 @@
 package cli
 
 import (
-	"fmt"
-	"log"
-
 	"github.com/diebietse/invertergui/mk2driver"
+	"github.com/sirupsen/logrus"
 )
+
+var log = logrus.WithField("ctx", "inverter-gui-cli")
 
 type Cli struct {
 	mk2driver.Mk2
@@ -27,21 +27,21 @@ func (c *Cli) run() {
 }
 
 func printInfo(info *mk2driver.Mk2Info) {
-	out := fmt.Sprintf("Version: %v\n", info.Version)
-	out += fmt.Sprintf("Bat Volt: %.2fV Bat Cur: %.2fA \n", info.BatVoltage, info.BatCurrent)
-	out += fmt.Sprintf("In Volt: %.2fV In Cur: %.2fA In Freq %.2fHz\n", info.InVoltage, info.InCurrent, info.InFrequency)
-	out += fmt.Sprintf("Out Volt: %.2fV Out Cur: %.2fA Out Freq %.2fHz\n", info.OutVoltage, info.OutCurrent, info.OutFrequency)
-	out += fmt.Sprintf("In Power %.2fW Out Power %.2fW\n", info.InVoltage*info.InCurrent, info.OutVoltage*info.OutCurrent)
-	out += fmt.Sprintf("Charge State: %.2f%%\n", info.ChargeState*100)
-	out += "LEDs state:"
+	log.Infof("Version: %v", info.Version)
+	log.Infof("Bat Volt: %.2fV Bat Cur: %.2fA", info.BatVoltage, info.BatCurrent)
+	log.Infof("In Volt: %.2fV In Cur: %.2fA In Freq %.2fHz", info.InVoltage, info.InCurrent, info.InFrequency)
+	log.Infof("Out Volt: %.2fV Out Cur: %.2fA Out Freq %.2fHz", info.OutVoltage, info.OutCurrent, info.OutFrequency)
+	log.Infof("In Power %.2fW Out Power %.2fW", info.InVoltage*info.InCurrent, info.OutVoltage*info.OutCurrent)
+	log.Infof("Charge State: %.2f%%", info.ChargeState*100)
+	log.Info("LEDs state:")
 	for k, v := range info.LEDs {
-		out += fmt.Sprintf(" %s %s", mk2driver.LedNames[k], mk2driver.StateNames[v])
+		log.Infof(" %s %s", mk2driver.LedNames[k], mk2driver.StateNames[v])
 	}
 
-	out += "\nErrors:"
-	for _, v := range info.Errors {
-		out += " " + v.Error()
+	if len(info.Errors) != 0 {
+		log.Info("Errors:")
+		for _, err := range info.Errors {
+			log.Error(err)
+		}
 	}
-	out += "\n"
-	log.Printf("System Info: \n%v", out)
 }

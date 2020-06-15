@@ -31,8 +31,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package main
 
 import (
+	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -46,16 +46,23 @@ import (
 	"github.com/diebietse/invertergui/plugins/webui"
 	"github.com/diebietse/invertergui/plugins/webui/static"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 	"github.com/tarm/serial"
 )
+
+var log = logrus.WithField("ctx", "inverter-gui")
 
 func main() {
 	conf, err := parseConfig()
 	if err != nil {
 		os.Exit(1)
 	}
+	log.Info("Starting invertergui")
 
-	mk2 := getMk2Device(conf.Data.Source, conf.Data.Host, conf.Data.Device)
+	mk2, err := getMk2Device(conf.Data.Source, conf.Data.Host, conf.Data.Device)
+	if err != nil {
+		log.Fatalf("Could not open data source: %v", err)
+	}
 	defer mk2.Close()
 
 	core := mk2core.NewCore(mk2)
@@ -88,14 +95,17 @@ func main() {
 			Password: conf.MQTT.Password,
 		}
 		if err := mqttclient.New(core.NewSubscription(), mqttConf); err != nil {
-			log.Printf("Could not setup MQTT client: %v", err)
+			log.Fatalf("Could not setup MQTT client: %v", err)
 		}
 	}
+	log.Infof("Invertergui web server starting on: %v", conf.Address)
 
-	log.Fatal(http.ListenAndServe(conf.Address, nil))
+	if err := http.ListenAndServe(conf.Address, nil); err != nil {
+		log.Fatal(err)
+	}
 }
 
-func getMk2Device(source, ip, dev string) mk2driver.Mk2 {
+func getMk2Device(source, ip, dev string) (mk2driver.Mk2, error) {
 	var p io.ReadWriteCloser
 	var err error
 	var tcpAddr *net.TCPAddr
@@ -105,28 +115,27 @@ func getMk2Device(source, ip, dev string) mk2driver.Mk2 {
 		serialConfig := &serial.Config{Name: dev, Baud: 2400}
 		p, err = serial.OpenPort(serialConfig)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	case "tcp":
 		tcpAddr, err = net.ResolveTCPAddr("tcp", ip)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		p, err = net.DialTCP("tcp", nil, tcpAddr)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	case "mock":
-		return mk2driver.NewMk2Mock()
+		return mk2driver.NewMk2Mock(), nil
 	default:
-		log.Printf("Invalid source selection: %v\nUse \"serial\", \"tcp\" or \"mock\"", source)
-		os.Exit(1)
+		return nil, fmt.Errorf("Invalid source selection: %v\nUse \"serial\", \"tcp\" or \"mock\"", source)
 	}
 
 	mk2, err := mk2driver.NewMk2Connection(p)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return mk2
+	return mk2, nil
 }

@@ -2,12 +2,14 @@ package mqttclient
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/diebietse/invertergui/mk2driver"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/sirupsen/logrus"
 )
+
+var log = logrus.WithField("ctx", "inverter-gui-mqtt")
 
 const keepAlive = 5 * time.Second
 
@@ -32,14 +34,14 @@ func New(mk2 mk2driver.Mk2, config Config) error {
 			if e.Valid {
 				data, err := json.Marshal(e)
 				if err != nil {
-					fmt.Printf("Data error: %v\n", err)
+					log.Errorf("Could not parse data source: %v", err)
 					continue
 				}
 
 				t := c.Publish(config.Topic, 0, false, data)
 				t.Wait()
 				if t.Error() != nil {
-					fmt.Printf("Error: %v\n", t.Error())
+					log.Errorf("Could not publish data: %v", t.Error())
 				}
 			}
 		}
@@ -61,10 +63,10 @@ func getOpts(config Config) *mqtt.ClientOptions {
 	opts.SetKeepAlive(keepAlive)
 
 	opts.SetOnConnectHandler(func(mqtt.Client) {
-		fmt.Print("Client connected to broker")
+		log.Info("Client connected to broker")
 	})
 	opts.SetConnectionLostHandler(func(cli mqtt.Client, err error) {
-		fmt.Printf("Client connection to broker losted: %v", err)
+		log.Errorf("Client connection to broker lost: %v", err)
 
 	})
 	return opts
