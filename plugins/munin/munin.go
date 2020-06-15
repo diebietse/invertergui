@@ -37,7 +37,10 @@ import (
 	"time"
 
 	"github.com/diebietse/invertergui/mk2driver"
+	"github.com/sirupsen/logrus"
 )
+
+var log = logrus.WithField("ctx", "inverter-gui-munin")
 
 type Munin struct {
 	mk2driver.Mk2
@@ -63,6 +66,7 @@ func NewMunin(mk2 mk2driver.Mk2) *Munin {
 func (m *Munin) ServeMuninHTTP(rw http.ResponseWriter, r *http.Request) {
 	muninDat := <-m.muninResponse
 	if muninDat.timesUpdated == 0 {
+		log.Error("No data returned")
 		rw.WriteHeader(500)
 		_, _ = rw.Write([]byte("No data to return.\n"))
 		return
@@ -95,7 +99,7 @@ func (m *Munin) ServeMuninHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	_, err := rw.Write(outputBuf.Bytes())
 	if err != nil {
-		fmt.Printf("%v\n", err)
+		log.Errorf("Could not write data response: %v", err)
 	}
 }
 
@@ -103,7 +107,7 @@ func (m *Munin) ServeMuninConfigHTTP(rw http.ResponseWriter, r *http.Request) {
 	output := muninConfig
 	_, err := rw.Write([]byte(output))
 	if err != nil {
-		fmt.Printf("%v\n", err)
+		log.Errorf("Could not write config response: %v", err)
 	}
 }
 

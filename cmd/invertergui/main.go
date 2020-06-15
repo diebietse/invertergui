@@ -31,9 +31,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package main
 
 import (
-	"flag"
+	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -41,28 +40,34 @@ import (
 	"github.com/diebietse/invertergui/mk2core"
 	"github.com/diebietse/invertergui/mk2driver"
 	"github.com/diebietse/invertergui/plugins/cli"
+	"github.com/diebietse/invertergui/plugins/mqttclient"
 	"github.com/diebietse/invertergui/plugins/munin"
 	"github.com/diebietse/invertergui/plugins/prometheus"
 	"github.com/diebietse/invertergui/plugins/webui"
 	"github.com/diebietse/invertergui/plugins/webui/static"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 	"github.com/tarm/serial"
 )
 
-func main() {
-	source := flag.String("source", "serial", "Set the source of data for the inverter gui. \"serial\", \"tcp\" or \"mock\"")
-	addr := flag.String("addr", ":8080", "TCP address to listen on.")
-	ip := flag.String("ip", "localhost:8139", "IP to connect when using tcp connection.")
-	dev := flag.String("dev", "/dev/ttyUSB0", "TTY device to use.")
-	cliEnable := flag.Bool("cli", false, "Enable CLI output")
-	flag.Parse()
+var log = logrus.WithField("ctx", "inverter-gui")
 
-	mk2 := getMk2Device(*source, *ip, *dev)
+func main() {
+	conf, err := parseConfig()
+	if err != nil {
+		os.Exit(1)
+	}
+	log.Info("Starting invertergui")
+
+	mk2, err := getMk2Device(conf.Data.Source, conf.Data.Host, conf.Data.Device)
+	if err != nil {
+		log.Fatalf("Could not open data source: %v", err)
+	}
 	defer mk2.Close()
 
 	core := mk2core.NewCore(mk2)
 
-	if *cliEnable {
+	if conf.Cli.Enabled {
 		cli.NewCli(core.NewSubscription())
 	}
 
@@ -80,10 +85,27 @@ func main() {
 	prometheus.NewPrometheus(core.NewSubscription())
 	http.Handle("/metrics", promhttp.Handler())
 
-	log.Fatal(http.ListenAndServe(*addr, nil))
+	// MQTT
+	if conf.MQTT.Enabled {
+		mqttConf := mqttclient.Config{
+			Broker:   conf.MQTT.Broker,
+			Topic:    conf.MQTT.Topic,
+			ClientID: conf.MQTT.ClientID,
+			Username: conf.MQTT.Username,
+			Password: conf.MQTT.Password,
+		}
+		if err := mqttclient.New(core.NewSubscription(), mqttConf); err != nil {
+			log.Fatalf("Could not setup MQTT client: %v", err)
+		}
+	}
+	log.Infof("Invertergui web server starting on: %v", conf.Address)
+
+	if err := http.ListenAndServe(conf.Address, nil); err != nil {
+		log.Fatal(err)
+	}
 }
 
-func getMk2Device(source, ip, dev string) mk2driver.Mk2 {
+func getMk2Device(source, ip, dev string) (mk2driver.Mk2, error) {
 	var p io.ReadWriteCloser
 	var err error
 	var tcpAddr *net.TCPAddr
@@ -93,28 +115,27 @@ func getMk2Device(source, ip, dev string) mk2driver.Mk2 {
 		serialConfig := &serial.Config{Name: dev, Baud: 2400}
 		p, err = serial.OpenPort(serialConfig)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	case "tcp":
 		tcpAddr, err = net.ResolveTCPAddr("tcp", ip)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		p, err = net.DialTCP("tcp", nil, tcpAddr)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	case "mock":
-		return mk2driver.NewMk2Mock()
+		return mk2driver.NewMk2Mock(), nil
 	default:
-		log.Printf("Invalid source selection: %v\nUse \"serial\", \"tcp\" or \"mock\"", source)
-		os.Exit(1)
+		return nil, fmt.Errorf("Invalid source selection: %v\nUse \"serial\", \"tcp\" or \"mock\"", source)
 	}
 
 	mk2, err := mk2driver.NewMk2Connection(p)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return mk2
+	return mk2, nil
 }

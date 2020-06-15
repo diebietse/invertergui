@@ -32,14 +32,16 @@ package webui
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/diebietse/invertergui/mk2driver"
 	"github.com/diebietse/invertergui/websocket"
+	"github.com/sirupsen/logrus"
 )
+
+var log = logrus.WithField("ctx", "inverter-gui-webgui")
 
 const (
 	LedOff     = "dot-off"
@@ -169,7 +171,7 @@ func (w *WebGui) dataPoll() {
 			if s.Valid {
 				err := w.hub.Broadcast(buildTemplateInput(s))
 				if err != nil {
-					log.Printf("Could not send update to clients: %v", err)
+					log.Errorf("Could not send update to clients: %v", err)
 				}
 			}
 		case <-w.stopChan:

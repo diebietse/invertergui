@@ -26,7 +26,7 @@
 #OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-.PHONY: test test-race vet install gofmt docker statik lint clean invertergui
+.PHONY: test test-race vet install gofmt docker statik lint clean invertergui vendor
 
 .DEFAULT_GOAL = invertergui
 
@@ -51,7 +51,14 @@ statik:
 	statik -f -p=frontend -src=./frontend/root
 
 lint:
-	golangci-lint run
+	docker run --rm -it \
+		-w /src -v $(shell pwd):/src \
+		golangci/golangci-lint:v1.26 golangci-lint run \
+		-v -c .golangci.yml
 
 clean:
 	rm ./invertergui
+
+vendor:
+	go mod tidy
+	go mod vendor
