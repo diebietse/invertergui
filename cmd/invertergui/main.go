@@ -31,7 +31,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package main
 
 import (
-	"flag"
 	"io"
 	"log"
 	"net"
@@ -41,6 +40,7 @@ import (
 	"github.com/diebietse/invertergui/mk2core"
 	"github.com/diebietse/invertergui/mk2driver"
 	"github.com/diebietse/invertergui/plugins/cli"
+	"github.com/diebietse/invertergui/plugins/mqttclient"
 	"github.com/diebietse/invertergui/plugins/munin"
 	"github.com/diebietse/invertergui/plugins/prometheus"
 	"github.com/diebietse/invertergui/plugins/webui"
@@ -50,19 +50,17 @@ import (
 )
 
 func main() {
-	source := flag.String("source", "serial", "Set the source of data for the inverter gui. \"serial\", \"tcp\" or \"mock\"")
-	addr := flag.String("addr", ":8080", "TCP address to listen on.")
-	ip := flag.String("ip", "localhost:8139", "IP to connect when using tcp connection.")
-	dev := flag.String("dev", "/dev/ttyUSB0", "TTY device to use.")
-	cliEnable := flag.Bool("cli", false, "Enable CLI output")
-	flag.Parse()
+	conf, err := parseConfig()
+	if err != nil {
+		os.Exit(1)
+	}
 
-	mk2 := getMk2Device(*source, *ip, *dev)
+	mk2 := getMk2Device(conf.Data.Source, conf.Data.Host, conf.Data.Device)
 	defer mk2.Close()
 
 	core := mk2core.NewCore(mk2)
 
-	if *cliEnable {
+	if conf.Cli.Enabled {
 		cli.NewCli(core.NewSubscription())
 	}
 
@@ -80,7 +78,21 @@ func main() {
 	prometheus.NewPrometheus(core.NewSubscription())
 	http.Handle("/metrics", promhttp.Handler())
 
-	log.Fatal(http.ListenAndServe(*addr, nil))
+	// MQTT
+	if conf.MQTT.Enabled {
+		mqttConf := mqttclient.Config{
+			Broker:   conf.MQTT.Broker,
+			Topic:    conf.MQTT.Topic,
+			ClientID: conf.MQTT.ClientID,
+			Username: conf.MQTT.Username,
+			Password: conf.MQTT.Password,
+		}
+		if err := mqttclient.New(core.NewSubscription(), mqttConf); err != nil {
+			log.Printf("Could not setup MQTT client: %v", err)
+		}
+	}
+
+	log.Fatal(http.ListenAndServe(conf.Address, nil))
 }
 
 func getMk2Device(source, ip, dev string) mk2driver.Mk2 {
