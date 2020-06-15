@@ -23,15 +23,26 @@ This project makes use of [Go Modules](https://github.com/golang/go/wiki/Modules
 ## Getting started
 
 ```bash
- Usage of ./invertergui:
-  -addr string
-    	TCP address to listen on. (default ":8080")
-  -dev string
-    	TTY device to use. (default "/dev/ttyUSB0")
-  -ip string
-    	IP to connect when using tcp connection. (default "localhost:8139")
-  -tcp
-    	Use TCP instead of TTY
+Usage:
+  invertergui [OPTIONS]
+
+Application Options:
+      --address=        The IP/DNS and port of the machine that the application is running on. (default: :8080)
+                        [$ADDRESS]
+      --data.source=    Set the source of data for the inverter gui. "serial", "tcp" or "mock" (default: serial)
+                        [$DATA_SOURCE]
+      --data.host=      Host to connect when source is set to tcp. (default: localhost:8139) [$DATA_HOST]
+      --data.device=    TTY device to use when source is set to serial. (default: /dev/ttyUSB0) [$DATA_DEVICE]
+      --cli.enabled     Enable CLI output. [$CLI_ENABLED]
+      --mqtt.enabled    Enable MQTT publishing. [$MQTT_ENABLED]
+      --mqtt.broker=    Set the host port and scheme of the MQTT broker. (default: tcp://localhost:1883) [$MQTT_BROKER]
+      --mqtt.client_id= Set the client ID for the MQTT connection. (default: interter-gui) [$MQTT_CLIENT_ID]
+      --mqtt.topic=     Set the MQTT topic updates published to. (default: invertergui/updates) [$MQTT_TOPIC]
+      --mqtt.username=  Set the MQTT username [$MQTT_USERNAME]
+      --mqtt.password=  Set the MQTT password [$MQTT_PASSWORD]
+
+Help Options:
+  -h, --help            Show this help message
 ```
 
 ## Port 8080
@@ -258,6 +269,25 @@ process_start_time_seconds 1.54506833485e+09
 # TYPE process_virtual_memory_bytes gauge
 process_virtual_memory_bytes 1.15101696e+08
 ```
+
+### MQTT
+
+The MQTT client will publish updates to the given broker at the set topic.
+
+#### MQTT Configuration Options
+
+```bash
+--mqtt.enabled    Enable MQTT publishing. [$MQTT_ENABLED]
+--mqtt.broker=    Set the host port and scheme of the MQTT broker. (default: tcp://localhost:1883) [$MQTT_BROKER]
+--mqtt.client_id= Set the client ID for the MQTT connection. (default: interter-gui) [$MQTT_CLIENT_ID]
+--mqtt.topic=     Set the MQTT topic updates published to. (default: invertergui/updates) [$MQTT_TOPIC]
+--mqtt.username=  Set the MQTT username [$MQTT_USERNAME]
+--mqtt.password=  Set the MQTT password [$MQTT_PASSWORD]
+```
+
+The MQTT client can be enabled by setting the environment variable `MQTT_ENABLED=true` or flag `--mqtt.enabled`.
+All MQTT configuration can be done via flags or as environment variables.
+The URI for the broker can be configured format should be `scheme://host:port`, where "scheme" is one of "tcp", "ssl", or "ws".
 
 ## TTY Device
 
