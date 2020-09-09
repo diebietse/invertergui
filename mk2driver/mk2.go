@@ -11,9 +11,30 @@ import (
 )
 
 type scaling struct {
-	scale  float64
-	offset float64
+	scale     float64
+	offset    float64
+	supported bool
 }
+
+const (
+	ramVarVMains = iota
+	ramVarIMains
+	ramVarVInverter
+	ramVarIInverter
+	ramVarVBat
+	ramVarIBat
+	ramVarVBatRipple
+	ramVarInverterPeriod
+	ramVarMainPeriod
+	ramVarIACLoad
+	ramVarVirSwitchPos
+	ramVarIgnACInState
+	ramVarMultiFuncRelay
+	ramVarChargeState
+	ramVarInverterPower1
+	ramVarInverterPower2
+	ramVarOutPower
+)
 
 type mk2Ser struct {
 	info       *Mk2Info
@@ -179,18 +200,23 @@ func (m *mk2Ser) reqScaleFactor(in byte) {
 
 // Decode the scale factor frame.
 func (m *mk2Ser) scaleDecode(frame []byte) {
-	scl := uint16(frame[2])<<8 + uint16(frame[1])
-	ofs := int16(uint16(frame[5])<<8 + uint16(frame[4]))
-
 	tmp := scaling{}
-	tmp.offset = float64(ofs)
-	if scl >= 0x4000 {
-		tmp.scale = math.Abs(1 / (0x8000 - float64(scl)))
+	if len(frame) <= 2 {
+		tmp.supported = false
+		log.Printf("Skiping scaling factors for: %d", m.scaleCount)
 	} else {
-		tmp.scale = math.Abs(float64(scl))
+		tmp.supported = true
+		scl := uint16(frame[2])<<8 + uint16(frame[1])
+		ofs := int16(uint16(frame[5])<<8 + uint16(frame[4]))
+
+		tmp.offset = float64(ofs)
+		if scl >= 0x4000 {
+			tmp.scale = math.Abs(1 / (0x8000 - float64(scl)))
+		} else {
+			tmp.scale = math.Abs(float64(scl))
+		}
 	}
 	m.scales = append(m.scales, tmp)
-
 	m.scaleCount++
 	if m.scaleCount < 14 {
 		m.reqScaleFactor(byte(m.scaleCount))
@@ -222,6 +248,9 @@ func (m *mk2Ser) versionDecode(frame []byte) {
 
 // Apply scaling to float
 func (m *mk2Ser) applyScale(value float64, scale int) float64 {
+	if !m.scales[scale].supported {
+		return value
+	}
 	return m.scales[scale].scale * (value + m.scales[scale].offset)
 }
 
@@ -237,13 +266,13 @@ func getUnsigned(data []byte) float64 {
 
 // Decodes DC frame.
 func (m *mk2Ser) dcDecode(frame []byte) {
-	m.info.BatVoltage = m.applyScale(getSigned(frame[5:7]), 4)
+	m.info.BatVoltage = m.applyScale(getSigned(frame[5:7]), ramVarVBat)
 
-	usedC := m.applyScale(getUnsigned(frame[7:10]), 5)
-	chargeC := m.applyScale(getUnsigned(frame[10:13]), 5)
+	usedC := m.applyScale(getUnsigned(frame[7:10]), ramVarIBat)
+	chargeC := m.applyScale(getUnsigned(frame[10:13]), ramVarIBat)
 	m.info.BatCurrent = usedC - chargeC
 
-	m.info.OutFrequency = 10 / (m.applyScale(float64(frame[13]), 7))
+	m.info.OutFrequency = 10 / (m.applyScale(float64(frame[13]), ramVarInverterPeriod))
 
 	// Send L1 status request
 	cmd := make([]byte, 2)
@@ -254,15 +283,15 @@ func (m *mk2Ser) dcDecode(frame []byte) {
 
 // Decodes AC frame.
 func (m *mk2Ser) acDecode(frame []byte) {
-	m.info.InVoltage = m.applyScale(getSigned(frame[5:7]), 0)
-	m.info.InCurrent = m.applyScale(getSigned(frame[7:9]), 1)
-	m.info.OutVoltage = m.applyScale(getSigned(frame[9:11]), 2)
-	m.info.OutCurrent = m.applyScale(getSigned(frame[11:13]), 3)
+	m.info.InVoltage = m.applyScale(getSigned(frame[5:7]), ramVarVMains)
+	m.info.InCurrent = m.applyScale(getSigned(frame[7:9]), ramVarIMains)
+	m.info.OutVoltage = m.applyScale(getSigned(frame[9:11]), ramVarVInverter)
+	m.info.OutCurrent = m.applyScale(getSigned(frame[11:13]), ramVarIInverter)
 
 	if frame[13] == 0xff {
 		m.info.InFrequency = 0
 	} else {
-		m.info.InFrequency = 10 / (m.applyScale(float64(frame[13]), 8))
+		m.info.InFrequency = 10 / (m.applyScale(float64(frame[13]), ramVarMainPeriod))
 	}
 
 	// Send status request
@@ -273,7 +302,7 @@ func (m *mk2Ser) acDecode(frame []byte) {
 
 // Decode charge state of battery.
 func (m *mk2Ser) stateDecode(frame []byte) {
-	m.info.ChargeState = m.applyScale(getSigned(frame[1:3]), 13)
+	m.info.ChargeState = m.applyScale(getSigned(frame[1:3]), ramVarChargeState)
 	m.updateReport()
 }
 
