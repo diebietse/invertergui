@@ -235,7 +235,7 @@ func (m *mk2Ser) reqScaleFactor(in byte) {
 // Decode the scale factor frame.
 func (m *mk2Ser) scaleDecode(frame []byte) {
 	tmp := scaling{}
-	if len(frame) <= 2 {
+	if len(frame) < 6 {
 		tmp.supported = false
 		logrus.Warnf("Skiping scaling factors for: %d", m.scaleCount)
 	} else {
