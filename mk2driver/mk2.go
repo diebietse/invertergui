@@ -4,16 +4,71 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type scaling struct {
-	scale  float64
-	offset float64
+	scale     float64
+	offset    float64
+	supported bool
 }
+
+//nolint:deadcode,varcheck
+const (
+	ramVarVMains = iota
+	ramVarIMains
+	ramVarVInverter
+	ramVarIInverter
+	ramVarVBat
+	ramVarIBat
+	ramVarVBatRipple
+	ramVarInverterPeriod
+	ramVarMainPeriod
+	ramVarIACLoad
+	ramVarVirSwitchPos
+	ramVarIgnACInState
+	ramVarMultiFuncRelay
+	ramVarChargeState
+	ramVarInverterPower1
+	ramVarInverterPower2
+	ramVarOutPower
+
+	ramVarMaxOffset = 14
+)
+
+const (
+	infoFrameHeader = 0x20
+	frameHeader     = 0xff
+)
+
+const (
+	acL1InfoFrame  = 0x08
+	dcInfoFrame    = 0x0C
+	setTargetFrame = 0x41
+	infoReqFrame   = 0x46
+	ledFrame       = 0x4C
+	vFrame         = 0x56
+	winmonFrame    = 0x57
+)
+
+// info frame types
+const (
+	infoReqAddrDC   = 0x00
+	infoReqAddrACL1 = 0x01
+)
+
+// winmon frame commands
+const (
+	commandReadRAMVar    = 0x30
+	commandGetRAMVarInfo = 0x36
+
+	commandReadRAMResponse       = 0x85
+	commandGetRAMVarInfoResponse = 0x8E
+)
 
 type mk2Ser struct {
 	info       *Mk2Info
@@ -32,7 +87,7 @@ func NewMk2Connection(dev io.ReadWriter) (Mk2, error) {
 	mk2.info = &Mk2Info{}
 	mk2.scaleCount = 0
 	mk2.frameLock = false
-	mk2.scales = make([]scaling, 0, 14)
+	mk2.scales = make([]scaling, 0, ramVarMaxOffset)
 	mk2.setTarget()
 	mk2.run = make(chan struct{})
 	mk2.infochan = make(chan *Mk2Info)
@@ -43,9 +98,8 @@ func NewMk2Connection(dev io.ReadWriter) (Mk2, error) {
 
 // Locks to incoming frame.
 func (m *mk2Ser) frameLocker() {
-
 	frame := make([]byte, 256)
-	var size byte
+	var frameLength byte
 	for {
 		select {
 		case <-m.run:
@@ -54,34 +108,36 @@ func (m *mk2Ser) frameLocker() {
 		default:
 		}
 		if m.frameLock {
-			size = m.readByte()
-			l, err := io.ReadFull(m.p, frame[0:int(size)+1])
+			frameLength = m.readByte()
+			frameLengthOffset := int(frameLength) + 1
+			l, err := io.ReadFull(m.p, frame[:frameLengthOffset])
 			if err != nil {
 				m.addError(fmt.Errorf("Read Error: %v", err))
 				m.frameLock = false
-			} else if l != int(size)+1 {
+			} else if l != frameLengthOffset {
 				m.addError(errors.New("Read Length Error"))
 				m.frameLock = false
 			} else {
-				m.handleFrame(size, frame[0:int(size+1)])
+				m.handleFrame(frameLength, frame[:frameLengthOffset])
 			}
 		} else {
 			tmp := m.readByte()
-			if tmp == 0xff || tmp == 0x20 {
-				l, err := io.ReadFull(m.p, frame[0:int(size)])
+			frameLengthOffset := int(frameLength)
+			if tmp == frameHeader || tmp == infoFrameHeader {
+				l, err := io.ReadFull(m.p, frame[:frameLengthOffset])
 				if err != nil {
 					m.addError(fmt.Errorf("Read Error: %v", err))
 					time.Sleep(1 * time.Second)
-				} else if l != int(size) {
+				} else if l != frameLengthOffset {
 					m.addError(errors.New("Read Length Error"))
 				} else {
-					if checkChecksum(size, tmp, frame[0:int(size)]) {
+					if checkChecksum(frameLength, tmp, frame[:frameLengthOffset]) {
 						m.frameLock = true
-						log.Printf("Locked")
+						logrus.Info("Locked")
 					}
 				}
 			}
-			size = tmp
+			frameLength = tmp
 		}
 	}
 }
@@ -129,32 +185,32 @@ func (m *mk2Ser) updateReport() {
 func (m *mk2Ser) handleFrame(l byte, frame []byte) {
 	if checkChecksum(l, frame[0], frame[1:]) {
 		switch frame[0] {
-		case 0xff:
+		case frameHeader:
 			switch frame[1] {
-			case 0x56: // V
+			case vFrame:
 				m.versionDecode(frame[2:])
-			case 0x57:
+			case winmonFrame:
 				switch frame[2] {
-				case 0x8e:
+				case commandGetRAMVarInfoResponse:
 					m.scaleDecode(frame[2:])
-				case 0x85:
+				case commandReadRAMResponse:
 					m.stateDecode(frame[2:])
 				}
 
-			case 0x4C: // L
+			case ledFrame:
 				m.ledDecode(frame[2:])
 			}
 
-		case 0x20:
+		case infoFrameHeader:
 			switch frame[5] {
-			case 0x0C:
+			case dcInfoFrame:
 				m.dcDecode(frame[1:])
-			case 0x08:
+			case acL1InfoFrame:
 				m.acDecode(frame[1:])
 			}
 		}
 	} else {
-		log.Printf("Invalid incoming frame checksum: %x", frame)
+		logrus.Errorf("Invalid incoming frame checksum: %x", frame)
 		m.frameLock = false
 	}
 }
@@ -162,7 +218,7 @@ func (m *mk2Ser) handleFrame(l byte, frame []byte) {
 // Set the target VBus device.
 func (m *mk2Ser) setTarget() {
 	cmd := make([]byte, 3)
-	cmd[0] = 0x41 // A
+	cmd[0] = setTargetFrame
 	cmd[1] = 0x01
 	cmd[2] = 0x00
 	m.sendCommand(cmd)
@@ -171,33 +227,37 @@ func (m *mk2Ser) setTarget() {
 // Request the scaling factor for entry 'in'.
 func (m *mk2Ser) reqScaleFactor(in byte) {
 	cmd := make([]byte, 4)
-	cmd[0] = 0x57 // W
-	cmd[1] = 0x36
+	cmd[0] = winmonFrame
+	cmd[1] = commandGetRAMVarInfo
 	cmd[2] = in
 	m.sendCommand(cmd)
 }
 
 // Decode the scale factor frame.
 func (m *mk2Ser) scaleDecode(frame []byte) {
-	scl := uint16(frame[2])<<8 + uint16(frame[1])
-	ofs := int16(uint16(frame[5])<<8 + uint16(frame[4]))
-
 	tmp := scaling{}
-	tmp.offset = float64(ofs)
-	if scl >= 0x4000 {
-		tmp.scale = math.Abs(1 / (0x8000 - float64(scl)))
+	if len(frame) < 6 {
+		tmp.supported = false
+		logrus.Warnf("Skiping scaling factors for: %d", m.scaleCount)
 	} else {
-		tmp.scale = math.Abs(float64(scl))
+		tmp.supported = true
+		scl := uint16(frame[2])<<8 + uint16(frame[1])
+		ofs := int16(uint16(frame[5])<<8 + uint16(frame[4]))
+
+		tmp.offset = float64(ofs)
+		if scl >= 0x4000 {
+			tmp.scale = math.Abs(1 / (0x8000 - float64(scl)))
+		} else {
+			tmp.scale = math.Abs(float64(scl))
+		}
 	}
 	m.scales = append(m.scales, tmp)
-
 	m.scaleCount++
-	if m.scaleCount < 14 {
+	if m.scaleCount < ramVarMaxOffset {
 		m.reqScaleFactor(byte(m.scaleCount))
 	} else {
-		log.Print("Monitoring starting.")
+		logrus.Info("Monitoring starting.")
 	}
-
 }
 
 // Decode the version number
@@ -208,20 +268,23 @@ func (m *mk2Ser) versionDecode(frame []byte) {
 		m.info.Version += uint32(frame[i]) << uint(i) * 8
 	}
 
-	if m.scaleCount < 14 {
-		log.Print("Get scaling factors.")
+	if m.scaleCount < ramVarMaxOffset {
+		logrus.Info("Get scaling factors.")
 		m.reqScaleFactor(byte(m.scaleCount))
 	} else {
 		// Send DC status request
 		cmd := make([]byte, 2)
-		cmd[0] = 0x46 //F
-		cmd[1] = 0
+		cmd[0] = infoReqFrame
+		cmd[1] = infoReqAddrDC
 		m.sendCommand(cmd)
 	}
 }
 
 // Apply scaling to float
 func (m *mk2Ser) applyScale(value float64, scale int) float64 {
+	if !m.scales[scale].supported {
+		return value
+	}
 	return m.scales[scale].scale * (value + m.scales[scale].offset)
 }
 
@@ -237,43 +300,43 @@ func getUnsigned(data []byte) float64 {
 
 // Decodes DC frame.
 func (m *mk2Ser) dcDecode(frame []byte) {
-	m.info.BatVoltage = m.applyScale(getSigned(frame[5:7]), 4)
+	m.info.BatVoltage = m.applyScale(getSigned(frame[5:7]), ramVarVBat)
 
-	usedC := m.applyScale(getUnsigned(frame[7:10]), 5)
-	chargeC := m.applyScale(getUnsigned(frame[10:13]), 5)
+	usedC := m.applyScale(getUnsigned(frame[7:10]), ramVarIBat)
+	chargeC := m.applyScale(getUnsigned(frame[10:13]), ramVarIBat)
 	m.info.BatCurrent = usedC - chargeC
 
-	m.info.OutFrequency = 10 / (m.applyScale(float64(frame[13]), 7))
+	m.info.OutFrequency = 10 / (m.applyScale(float64(frame[13]), ramVarInverterPeriod))
 
 	// Send L1 status request
 	cmd := make([]byte, 2)
-	cmd[0] = 0x46 //F
-	cmd[1] = 1
+	cmd[0] = infoReqFrame
+	cmd[1] = infoReqAddrACL1
 	m.sendCommand(cmd)
 }
 
 // Decodes AC frame.
 func (m *mk2Ser) acDecode(frame []byte) {
-	m.info.InVoltage = m.applyScale(getSigned(frame[5:7]), 0)
-	m.info.InCurrent = m.applyScale(getSigned(frame[7:9]), 1)
-	m.info.OutVoltage = m.applyScale(getSigned(frame[9:11]), 2)
-	m.info.OutCurrent = m.applyScale(getSigned(frame[11:13]), 3)
+	m.info.InVoltage = m.applyScale(getSigned(frame[5:7]), ramVarVMains)
+	m.info.InCurrent = m.applyScale(getSigned(frame[7:9]), ramVarIMains)
+	m.info.OutVoltage = m.applyScale(getSigned(frame[9:11]), ramVarVInverter)
+	m.info.OutCurrent = m.applyScale(getSigned(frame[11:13]), ramVarIInverter)
 
 	if frame[13] == 0xff {
 		m.info.InFrequency = 0
 	} else {
-		m.info.InFrequency = 10 / (m.applyScale(float64(frame[13]), 8))
+		m.info.InFrequency = 10 / (m.applyScale(float64(frame[13]), ramVarMainPeriod))
 	}
 
 	// Send status request
 	cmd := make([]byte, 1)
-	cmd[0] = 0x4C //F
+	cmd[0] = ledFrame
 	m.sendCommand(cmd)
 }
 
 // Decode charge state of battery.
 func (m *mk2Ser) stateDecode(frame []byte) {
-	m.info.ChargeState = m.applyScale(getSigned(frame[1:3]), 13)
+	m.info.ChargeState = m.applyScale(getSigned(frame[1:3]), ramVarChargeState)
 	m.updateReport()
 }
 
@@ -283,9 +346,9 @@ func (m *mk2Ser) ledDecode(frame []byte) {
 	m.info.LEDs = getLEDs(frame[0], frame[1])
 	// Send charge state request
 	cmd := make([]byte, 4)
-	cmd[0] = 0x57 //W
-	cmd[1] = 0x30
-	cmd[2] = 13
+	cmd[0] = winmonFrame
+	cmd[1] = commandReadRAMVar
+	cmd[2] = ramVarChargeState
 	m.sendCommand(cmd)
 }
 
@@ -312,7 +375,7 @@ func (m *mk2Ser) sendCommand(data []byte) {
 	l := len(data)
 	dataOut := make([]byte, l+3)
 	dataOut[0] = byte(l + 1)
-	dataOut[1] = 0xff
+	dataOut[1] = frameHeader
 	cr := -dataOut[0] - dataOut[1]
 	for i := 0; i < len(data); i++ {
 		cr = cr - data[i]

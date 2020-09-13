@@ -1,45 +1,10 @@
-/**
-write out: []byte{0x04, 0xff, 0x41, 0x01, 0x00, 0xbb, }
-read byte: []byte{0x04, }
-read byte: []byte{0xff, }
-read unlocked: []byte{0x41, 0x01, 0x00, 0xbb, }
-2019/03/17 16:24:17 Locked
-
-
-
-write out: []byte{0x04, 0xff, 0x41, 0x01, 0x00, 0xbb, }
-write out: []byte{0x05, 0xff, 0x57, 0x36, 0x00, 0x00, 0x6f, }
-write out: []byte{0x05, 0xff, 0x57, 0x36, 0x01, 0x00, 0x6e, }
-write out: []byte{0x05, 0xff, 0x57, 0x36, 0x02, 0x00, 0x6d, }
-write out: []byte{0x05, 0xff, 0x57, 0x36, 0x03, 0x00, 0x6c, }
-write out: []byte{0x05, 0xff, 0x57, 0x36, 0x04, 0x00, 0x6b, }
-write out: []byte{0x05, 0xff, 0x57, 0x36, 0x05, 0x00, 0x6a, }
-write out: []byte{0x05, 0xff, 0x57, 0x36, 0x06, 0x00, 0x69, }
-write out: []byte{0x05, 0xff, 0x57, 0x36, 0x07, 0x00, 0x68, }
-write out: []byte{0x05, 0xff, 0x57, 0x36, 0x08, 0x00, 0x67, }
-write out: []byte{0x05, 0xff, 0x57, 0x36, 0x09, 0x00, 0x66, }
-write out: []byte{0x05, 0xff, 0x57, 0x36, 0x0a, 0x00, 0x65, }
-write out: []byte{0x05, 0xff, 0x57, 0x36, 0x0b, 0x00, 0x64, }
-write out: []byte{0x05, 0xff, 0x57, 0x36, 0x0c, 0x00, 0x63, }
-write out: []byte{0x05, 0xff, 0x57, 0x36, 0x0d, 0x00, 0x62, }
-write out: []byte{0x03, 0xff, 0x46, 0x00, 0xb8, }
-write out: []byte{0x03, 0xff, 0x46, 0x01, 0xb7, }
-write out: []byte{0x02, 0xff, 0x4c, 0xb3, }
-write out: []byte{0x05, 0xff, 0x57, 0x30, 0x0d, 0x00, 0x68, }
-write out: []byte{0x03, 0xff, 0x46, 0x00, 0xb8, }
-write out: []byte{0x03, 0xff, 0x46, 0x01, 0xb7, }
-write out: []byte{0x02, 0xff, 0x4c, 0xb3, }
-write out: []byte{0x05, 0xff, 0x57, 0x30, 0x0d, 0x00, 0x68, }
-*/
-
-package mk2driver_test
+package mk2driver
 
 import (
 	"bytes"
 	"io"
 	"testing"
 
-	"github.com/diebietse/invertergui/mk2driver"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -66,6 +31,10 @@ var knownWrites = []byte{
 }
 
 var writeBuffer = bytes.NewBuffer(nil)
+
+const (
+	testEpsilon = 0.00000001
+)
 
 type testIo struct {
 	io.Reader
@@ -105,18 +74,18 @@ func TestSync(t *testing.T) {
 		0x05, 0xff, 0x57, 0x85, 0xc8, 0x00, 0x58,
 	}
 
-	expectedLEDs := map[mk2driver.Led]mk2driver.LEDstate{
-		mk2driver.LedMain:        mk2driver.LedOn,
-		mk2driver.LedAbsorption:  mk2driver.LedOn,
-		mk2driver.LedBulk:        mk2driver.LedOff,
-		mk2driver.LedFloat:       mk2driver.LedOff,
-		mk2driver.LedInverter:    mk2driver.LedOff,
-		mk2driver.LedOverload:    mk2driver.LedOff,
-		mk2driver.LedLowBattery:  mk2driver.LedOff,
-		mk2driver.LedTemperature: mk2driver.LedOff,
+	expectedLEDs := map[Led]LEDstate{
+		LedMain:        LedOn,
+		LedAbsorption:  LedOn,
+		LedBulk:        LedOff,
+		LedFloat:       LedOff,
+		LedInverter:    LedOff,
+		LedOverload:    LedOff,
+		LedLowBattery:  LedOff,
+		LedTemperature: LedOff,
 	}
 	testIO := NewIOStub(knownReadBuffer)
-	mk2, err := mk2driver.NewMk2Connection(testIO)
+	mk2, err := NewMk2Connection(testIO)
 	assert.NoError(t, err, "Could not open MK2")
 
 	event := <-mk2.C()
@@ -128,14 +97,54 @@ func TestSync(t *testing.T) {
 	assert.Equal(t, 0, len(event.Errors), "Reported errors not empty")
 	assert.Equal(t, expectedLEDs, event.LEDs, "Reported LEDs incorrect")
 
-	epsilon := 0.00000001
-	assert.InEpsilon(t, 14.41, event.BatVoltage, epsilon, "BatVoltage conversion failed")
-	assert.InEpsilon(t, -0.4, event.BatCurrent, epsilon, "BatCurrent conversion failed")
-	assert.InEpsilon(t, 226.98, event.InVoltage, epsilon, "InVoltage conversion failed")
-	assert.InEpsilon(t, 1.71, event.InCurrent, epsilon, "InCurrent conversion failed")
-	assert.InEpsilon(t, 50.10256410256411, event.InFrequency, epsilon, "InFrequency conversion failed")
-	assert.InEpsilon(t, 226.980, event.OutVoltage, epsilon, "OutVoltage conversion failed")
-	assert.InEpsilon(t, 1.54, event.OutCurrent, epsilon, "OutCurrent conversion failed")
-	assert.InEpsilon(t, 50.025510204081634, event.OutFrequency, epsilon, "OutFrequency conversion failed")
-	assert.InEpsilon(t, 1, event.ChargeState, epsilon, "ChargeState conversion failed")
+	assert.InEpsilon(t, 14.41, event.BatVoltage, testEpsilon, "BatVoltage conversion failed")
+	assert.InEpsilon(t, -0.4, event.BatCurrent, testEpsilon, "BatCurrent conversion failed")
+	assert.InEpsilon(t, 226.98, event.InVoltage, testEpsilon, "InVoltage conversion failed")
+	assert.InEpsilon(t, 1.71, event.InCurrent, testEpsilon, "InCurrent conversion failed")
+	assert.InEpsilon(t, 50.10256410256411, event.InFrequency, testEpsilon, "InFrequency conversion failed")
+	assert.InEpsilon(t, 226.980, event.OutVoltage, testEpsilon, "OutVoltage conversion failed")
+	assert.InEpsilon(t, 1.54, event.OutCurrent, testEpsilon, "OutCurrent conversion failed")
+	assert.InEpsilon(t, 50.025510204081634, event.OutFrequency, testEpsilon, "OutFrequency conversion failed")
+	assert.InEpsilon(t, 1, event.ChargeState, testEpsilon, "ChargeState conversion failed")
+}
+
+func Test_mk2Ser_scaleDecode(t *testing.T) {
+	tests := []struct {
+		name            string
+		frame           []byte
+		expectedScaling scaling
+	}{
+		{
+			name:  "Valid scale",
+			frame: []byte{0x57, 0x8e, 0x9c, 0x7f, 0x8f, 0x00, 0x00, 0x6a},
+			expectedScaling: scaling{
+				scale:     0.00013679890560875513,
+				offset:    143,
+				supported: true,
+			},
+		},
+		{
+			name:  "Unsupported frame",
+			frame: []byte{0x57, 0x00},
+			expectedScaling: scaling{
+				supported: false,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &mk2Ser{
+				scales: make([]scaling, 0, ramVarMaxOffset),
+				p:      NewIOStub([]byte{}),
+			}
+			m.scaleDecode(tt.frame)
+			assert.Equal(t, 1, len(m.scales))
+			assert.Equal(t, 1, m.scaleCount)
+			assert.Equal(t, tt.expectedScaling.supported, m.scales[0].supported)
+			if tt.expectedScaling.supported {
+				assert.InEpsilon(t, tt.expectedScaling.offset, m.scales[0].offset, testEpsilon)
+				assert.InEpsilon(t, tt.expectedScaling.scale, m.scales[0].scale, testEpsilon)
+			}
+		})
+	}
 }
