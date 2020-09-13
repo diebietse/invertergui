@@ -4,10 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type scaling struct {
@@ -131,7 +132,7 @@ func (m *mk2Ser) frameLocker() {
 				} else {
 					if checkChecksum(frameLength, tmp, frame[:frameLengthOffset]) {
 						m.frameLock = true
-						log.Printf("Locked")
+						logrus.Info("Locked")
 					}
 				}
 			}
@@ -208,7 +209,7 @@ func (m *mk2Ser) handleFrame(l byte, frame []byte) {
 			}
 		}
 	} else {
-		log.Printf("Invalid incoming frame checksum: %x", frame)
+		logrus.Errorf("Invalid incoming frame checksum: %x", frame)
 		m.frameLock = false
 	}
 }
@@ -236,7 +237,7 @@ func (m *mk2Ser) scaleDecode(frame []byte) {
 	tmp := scaling{}
 	if len(frame) <= 2 {
 		tmp.supported = false
-		log.Printf("Skiping scaling factors for: %d", m.scaleCount)
+		logrus.Warnf("Skiping scaling factors for: %d", m.scaleCount)
 	} else {
 		tmp.supported = true
 		scl := uint16(frame[2])<<8 + uint16(frame[1])
@@ -254,9 +255,8 @@ func (m *mk2Ser) scaleDecode(frame []byte) {
 	if m.scaleCount < ramVarMaxOffset {
 		m.reqScaleFactor(byte(m.scaleCount))
 	} else {
-		log.Print("Monitoring starting.")
+		logrus.Info("Monitoring starting.")
 	}
-
 }
 
 // Decode the version number
