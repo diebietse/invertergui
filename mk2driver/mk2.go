@@ -17,6 +17,7 @@ type scaling struct {
 	supported bool
 }
 
+//nolint:deadcode,varcheck
 const (
 	ramVarVMains = iota
 	ramVarIMains
