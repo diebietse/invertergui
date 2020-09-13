@@ -34,6 +34,38 @@ const (
 	ramVarInverterPower1
 	ramVarInverterPower2
 	ramVarOutPower
+
+	ramVarMaxOffset = 14
+)
+
+const (
+	infoFrameHeader = 0x20
+	frameHeader     = 0xff
+)
+
+const (
+	acL1InfoFrame  = 0x08
+	dcInfoFrame    = 0x0C
+	setTargetFrame = 0x41
+	infoReqFrame   = 0x46
+	ledFrame       = 0x4C
+	vFrame         = 0x56
+	winmonFrame    = 0x57
+)
+
+// info frame types
+const (
+	infoReqAddrDC   = 0x00
+	infoReqAddrACL1 = 0x01
+)
+
+// winmon frame commands
+const (
+	commandReadRAMVar    = 0x30
+	commandGetRAMVarInfo = 0x36
+
+	commandReadRAMResponse       = 0x85
+	commandGetRAMVarInfoResponse = 0x8E
 )
 
 type mk2Ser struct {
@@ -53,7 +85,7 @@ func NewMk2Connection(dev io.ReadWriter) (Mk2, error) {
 	mk2.info = &Mk2Info{}
 	mk2.scaleCount = 0
 	mk2.frameLock = false
-	mk2.scales = make([]scaling, 0, 14)
+	mk2.scales = make([]scaling, 0, ramVarMaxOffset)
 	mk2.setTarget()
 	mk2.run = make(chan struct{})
 	mk2.infochan = make(chan *Mk2Info)
@@ -64,9 +96,8 @@ func NewMk2Connection(dev io.ReadWriter) (Mk2, error) {
 
 // Locks to incoming frame.
 func (m *mk2Ser) frameLocker() {
-
 	frame := make([]byte, 256)
-	var size byte
+	var frameLength byte
 	for {
 		select {
 		case <-m.run:
@@ -75,34 +106,36 @@ func (m *mk2Ser) frameLocker() {
 		default:
 		}
 		if m.frameLock {
-			size = m.readByte()
-			l, err := io.ReadFull(m.p, frame[0:int(size)+1])
+			frameLength = m.readByte()
+			frameLengthOffset := int(frameLength) + 1
+			l, err := io.ReadFull(m.p, frame[:frameLengthOffset])
 			if err != nil {
 				m.addError(fmt.Errorf("Read Error: %v", err))
 				m.frameLock = false
-			} else if l != int(size)+1 {
+			} else if l != frameLengthOffset {
 				m.addError(errors.New("Read Length Error"))
 				m.frameLock = false
 			} else {
-				m.handleFrame(size, frame[0:int(size+1)])
+				m.handleFrame(frameLength, frame[:frameLengthOffset])
 			}
 		} else {
 			tmp := m.readByte()
-			if tmp == 0xff || tmp == 0x20 {
-				l, err := io.ReadFull(m.p, frame[0:int(size)])
+			frameLengthOffset := int(frameLength)
+			if tmp == frameHeader || tmp == infoFrameHeader {
+				l, err := io.ReadFull(m.p, frame[:frameLengthOffset])
 				if err != nil {
 					m.addError(fmt.Errorf("Read Error: %v", err))
 					time.Sleep(1 * time.Second)
-				} else if l != int(size) {
+				} else if l != frameLengthOffset {
 					m.addError(errors.New("Read Length Error"))
 				} else {
-					if checkChecksum(size, tmp, frame[0:int(size)]) {
+					if checkChecksum(frameLength, tmp, frame[:frameLengthOffset]) {
 						m.frameLock = true
 						log.Printf("Locked")
 					}
 				}
 			}
-			size = tmp
+			frameLength = tmp
 		}
 	}
 }
@@ -150,27 +183,27 @@ func (m *mk2Ser) updateReport() {
 func (m *mk2Ser) handleFrame(l byte, frame []byte) {
 	if checkChecksum(l, frame[0], frame[1:]) {
 		switch frame[0] {
-		case 0xff:
+		case frameHeader:
 			switch frame[1] {
-			case 0x56: // V
+			case vFrame:
 				m.versionDecode(frame[2:])
-			case 0x57:
+			case winmonFrame:
 				switch frame[2] {
-				case 0x8e:
+				case commandGetRAMVarInfoResponse:
 					m.scaleDecode(frame[2:])
-				case 0x85:
+				case commandReadRAMResponse:
 					m.stateDecode(frame[2:])
 				}
 
-			case 0x4C: // L
+			case ledFrame:
 				m.ledDecode(frame[2:])
 			}
 
-		case 0x20:
+		case infoFrameHeader:
 			switch frame[5] {
-			case 0x0C:
+			case dcInfoFrame:
 				m.dcDecode(frame[1:])
-			case 0x08:
+			case acL1InfoFrame:
 				m.acDecode(frame[1:])
 			}
 		}
@@ -183,7 +216,7 @@ func (m *mk2Ser) handleFrame(l byte, frame []byte) {
 // Set the target VBus device.
 func (m *mk2Ser) setTarget() {
 	cmd := make([]byte, 3)
-	cmd[0] = 0x41 // A
+	cmd[0] = setTargetFrame
 	cmd[1] = 0x01
 	cmd[2] = 0x00
 	m.sendCommand(cmd)
@@ -192,8 +225,8 @@ func (m *mk2Ser) setTarget() {
 // Request the scaling factor for entry 'in'.
 func (m *mk2Ser) reqScaleFactor(in byte) {
 	cmd := make([]byte, 4)
-	cmd[0] = 0x57 // W
-	cmd[1] = 0x36
+	cmd[0] = winmonFrame
+	cmd[1] = commandGetRAMVarInfo
 	cmd[2] = in
 	m.sendCommand(cmd)
 }
@@ -218,7 +251,7 @@ func (m *mk2Ser) scaleDecode(frame []byte) {
 	}
 	m.scales = append(m.scales, tmp)
 	m.scaleCount++
-	if m.scaleCount < 14 {
+	if m.scaleCount < ramVarMaxOffset {
 		m.reqScaleFactor(byte(m.scaleCount))
 	} else {
 		log.Print("Monitoring starting.")
@@ -234,14 +267,14 @@ func (m *mk2Ser) versionDecode(frame []byte) {
 		m.info.Version += uint32(frame[i]) << uint(i) * 8
 	}
 
-	if m.scaleCount < 14 {
-		log.Print("Get scaling factors.")
+	if m.scaleCount < ramVarMaxOffset {
+		logrus.Info("Get scaling factors.")
 		m.reqScaleFactor(byte(m.scaleCount))
 	} else {
 		// Send DC status request
 		cmd := make([]byte, 2)
-		cmd[0] = 0x46 //F
-		cmd[1] = 0
+		cmd[0] = infoReqFrame
+		cmd[1] = infoReqAddrDC
 		m.sendCommand(cmd)
 	}
 }
@@ -276,8 +309,8 @@ func (m *mk2Ser) dcDecode(frame []byte) {
 
 	// Send L1 status request
 	cmd := make([]byte, 2)
-	cmd[0] = 0x46 //F
-	cmd[1] = 1
+	cmd[0] = infoReqFrame
+	cmd[1] = infoReqAddrACL1
 	m.sendCommand(cmd)
 }
 
@@ -296,7 +329,7 @@ func (m *mk2Ser) acDecode(frame []byte) {
 
 	// Send status request
 	cmd := make([]byte, 1)
-	cmd[0] = 0x4C //F
+	cmd[0] = ledFrame
 	m.sendCommand(cmd)
 }
 
@@ -312,9 +345,9 @@ func (m *mk2Ser) ledDecode(frame []byte) {
 	m.info.LEDs = getLEDs(frame[0], frame[1])
 	// Send charge state request
 	cmd := make([]byte, 4)
-	cmd[0] = 0x57 //W
-	cmd[1] = 0x30
-	cmd[2] = 13
+	cmd[0] = winmonFrame
+	cmd[1] = commandReadRAMVar
+	cmd[2] = ramVarChargeState
 	m.sendCommand(cmd)
 }
 
@@ -341,7 +374,7 @@ func (m *mk2Ser) sendCommand(data []byte) {
 	l := len(data)
 	dataOut := make([]byte, l+3)
 	dataOut[0] = byte(l + 1)
-	dataOut[1] = 0xff
+	dataOut[1] = frameHeader
 	cr := -dataOut[0] - dataOut[1]
 	for i := 0; i < len(data); i++ {
 		cr = cr - data[i]
