@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"sync"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 type scaling struct {
 	scale     float64
 	offset    float64
+	signed    bool
 	supported bool
 }
 
@@ -233,6 +233,13 @@ func (m *mk2Ser) reqScaleFactor(in byte) {
 	m.sendCommand(cmd)
 }
 
+func int16Abs(in int16) uint16 {
+	if in < 0 {
+		return uint16(-in)
+	}
+	return uint16(in)
+}
+
 // Decode the scale factor frame.
 func (m *mk2Ser) scaleDecode(frame []byte) {
 	tmp := scaling{}
@@ -240,27 +247,26 @@ func (m *mk2Ser) scaleDecode(frame []byte) {
 	if len(frame) < 6 {
 		tmp.supported = false
 		logrus.Warnf("Skiping scaling factors for: %d", m.scaleCount)
-	} else if len(frame) == 6 {
-		tmp.supported = true
-		scl := uint16(frame[2])<<8 + uint16(frame[1])
-		ofs := int16(uint16(frame[4])<<8 + uint16(frame[3]))
-
-		tmp.offset = float64(ofs)
-		if scl >= 0x4000 {
-			tmp.scale = math.Abs(1 / (0x8000 - float64(scl)))
-		} else {
-			tmp.scale = math.Abs(float64(scl))
-		}
 	} else {
 		tmp.supported = true
-		scl := uint16(frame[2])<<8 + uint16(frame[1])
-		ofs := int16(uint16(frame[5])<<8 + uint16(frame[4]))
-
-		tmp.offset = float64(ofs)
-		if scl >= 0x4000 {
-			tmp.scale = math.Abs(1 / (0x8000 - float64(scl)))
+		var scl int16
+		var ofs int16
+		if len(frame) == 6 {
+			scl = int16(frame[2])<<8 + int16(frame[1])
+			ofs = int16(uint16(frame[4])<<8 + uint16(frame[3]))
 		} else {
-			tmp.scale = math.Abs(float64(scl))
+			scl = int16(frame[2])<<8 + int16(frame[1])
+			ofs = int16(uint16(frame[5])<<8 + uint16(frame[4]))
+		}
+		if scl < 0 {
+			tmp.signed = true
+		}
+		tmp.offset = float64(ofs)
+		scale := int16Abs(scl)
+		if scale >= 0x4000 {
+			tmp.scale = 1 / (0x8000 - float64(scale))
+		} else {
+			tmp.scale = float64(scale)
 		}
 	}
 	m.scales = append(m.scales, tmp)
@@ -292,6 +298,20 @@ func (m *mk2Ser) versionDecode(frame []byte) {
 	}
 }
 
+// Decode with correct signedness and apply scale
+func (m *mk2Ser) applyScaleAndSign(data []byte, scale int) float64 {
+	var value float64
+	if !m.scales[scale].supported {
+		return 0
+	}
+	if m.scales[scale].signed {
+		value = getSigned(data)
+	} else {
+		value = getUnsigned16(data)
+	}
+	return m.applyScale(value, scale)
+}
+
 // Apply scaling to float
 func (m *mk2Ser) applyScale(value float64, scale int) float64 {
 	if !m.scales[scale].supported {
@@ -305,6 +325,11 @@ func getSigned(data []byte) float64 {
 	return float64(int16(data[0]) + int16(data[1])<<8)
 }
 
+// Convert bytes->int16->float
+func getUnsigned16(data []byte) float64 {
+	return float64(uint16(data[0]) + uint16(data[1])<<8)
+}
+
 // Convert bytes->uint32->float
 func getUnsigned(data []byte) float64 {
 	return float64(uint32(data[0]) + uint32(data[1])<<8 + uint32(data[2])<<16)
@@ -312,7 +337,7 @@ func getUnsigned(data []byte) float64 {
 
 // Decodes DC frame.
 func (m *mk2Ser) dcDecode(frame []byte) {
-	m.info.BatVoltage = m.applyScale(getSigned(frame[5:7]), ramVarVBat)
+	m.info.BatVoltage = m.applyScaleAndSign(frame[5:7], ramVarVBat)
 
 	usedC := m.applyScale(getUnsigned(frame[7:10]), ramVarIBat)
 	chargeC := m.applyScale(getUnsigned(frame[10:13]), ramVarIBat)
@@ -329,10 +354,10 @@ func (m *mk2Ser) dcDecode(frame []byte) {
 
 // Decodes AC frame.
 func (m *mk2Ser) acDecode(frame []byte) {
-	m.info.InVoltage = m.applyScale(getSigned(frame[5:7]), ramVarVMains)
-	m.info.InCurrent = m.applyScale(getSigned(frame[7:9]), ramVarIMains)
-	m.info.OutVoltage = m.applyScale(getSigned(frame[9:11]), ramVarVInverter)
-	m.info.OutCurrent = m.applyScale(getSigned(frame[11:13]), ramVarIInverter)
+	m.info.InVoltage = m.applyScaleAndSign(frame[5:7], ramVarVMains)
+	m.info.InCurrent = m.applyScaleAndSign(frame[7:9], ramVarIMains)
+	m.info.OutVoltage = m.applyScaleAndSign(frame[9:11], ramVarVInverter)
+	m.info.OutCurrent = m.applyScaleAndSign(frame[11:13], ramVarIInverter)
 
 	if frame[13] == 0xff {
 		m.info.InFrequency = 0
@@ -348,7 +373,7 @@ func (m *mk2Ser) acDecode(frame []byte) {
 
 // Decode charge state of battery.
 func (m *mk2Ser) stateDecode(frame []byte) {
-	m.info.ChargeState = m.applyScale(getSigned(frame[1:3]), ramVarChargeState)
+	m.info.ChargeState = m.applyScaleAndSign(frame[1:3], ramVarChargeState)
 	m.updateReport()
 }
 
