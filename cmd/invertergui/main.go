@@ -58,6 +58,11 @@ func main() {
 		os.Exit(1)
 	}
 	log.Info("Starting invertergui")
+	logLevel, err := logrus.ParseLevel(conf.Loglevel)
+	if err != nil {
+		log.Fatalf("Could not parse log level: %v", err)
+	}
+	logrus.SetLevel(logLevel)
 
 	mk2, err := getMk2Device(conf.Data.Source, conf.Data.Host, conf.Data.Device)
 	if err != nil {

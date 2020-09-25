@@ -22,6 +22,7 @@ type config struct {
 		Username string `long:"mqtt.username" env:"MQTT_USERNAME" default:"" description:"Set the MQTT username"`
 		Password string `long:"mqtt.password" env:"MQTT_PASSWORD" default:"" description:"Set the MQTT password"`
 	}
+	Loglevel string `long:"loglevel" env:"LOGLEVEL" default:"info" description:"The log level to generate logs at. (\"panic\", \"fatal\", \"error\", \"warn\", \"info\", \"debug\", \"trace\")"`
 }
 
 func parseConfig() (*config, error) {

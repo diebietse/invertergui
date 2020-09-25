@@ -27,10 +27,8 @@ Usage:
   invertergui [OPTIONS]
 
 Application Options:
-      --address=        The IP/DNS and port of the machine that the application is running on. (default: :8080)
-                        [$ADDRESS]
-      --data.source=    Set the source of data for the inverter gui. "serial", "tcp" or "mock" (default: serial)
-                        [$DATA_SOURCE]
+      --address=        The IP/DNS and port of the machine that the application is running on. (default: :8080) [$ADDRESS]
+      --data.source=    Set the source of data for the inverter gui. "serial", "tcp" or "mock" (default: serial) [$DATA_SOURCE]
       --data.host=      Host to connect when source is set to tcp. (default: localhost:8139) [$DATA_HOST]
       --data.device=    TTY device to use when source is set to serial. (default: /dev/ttyUSB0) [$DATA_DEVICE]
       --cli.enabled     Enable CLI output. [$CLI_ENABLED]
@@ -40,6 +38,7 @@ Application Options:
       --mqtt.topic=     Set the MQTT topic updates published to. (default: invertergui/updates) [$MQTT_TOPIC]
       --mqtt.username=  Set the MQTT username [$MQTT_USERNAME]
       --mqtt.password=  Set the MQTT password [$MQTT_PASSWORD]
+      --loglevel=       The log level to generate logs at. ("panic", "fatal", "error", "warn", "info", "debug", "trace") (default: info) [$LOGLEVEL]
 
 Help Options:
   -h, --help            Show this help message

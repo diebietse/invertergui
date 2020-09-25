@@ -183,6 +183,7 @@ func (m *mk2Ser) updateReport() {
 
 // Checks for valid frame and chooses decoding.
 func (m *mk2Ser) handleFrame(l byte, frame []byte) {
+	logrus.Debugf("frame %#v", frame)
 	if checkChecksum(l, frame[0], frame[1:]) {
 		switch frame[0] {
 		case frameHeader:
@@ -243,7 +244,7 @@ func int16Abs(in int16) uint16 {
 // Decode the scale factor frame.
 func (m *mk2Ser) scaleDecode(frame []byte) {
 	tmp := scaling{}
-	logrus.Infof("Scale frame(%d): 0x%x", len(frame), frame)
+	logrus.Debugf("Scale frame(%d): 0x%x", len(frame), frame)
 	if len(frame) < 6 {
 		tmp.supported = false
 		logrus.Warnf("Skiping scaling factors for: %d", m.scaleCount)
@@ -269,6 +270,7 @@ func (m *mk2Ser) scaleDecode(frame []byte) {
 			tmp.scale = float64(scale)
 		}
 	}
+	logrus.Debugf("scalecount %v: %#v \n", m.scaleCount, tmp)
 	m.scales = append(m.scales, tmp)
 	m.scaleCount++
 	if m.scaleCount < ramVarMaxOffset {
@@ -280,6 +282,7 @@ func (m *mk2Ser) scaleDecode(frame []byte) {
 
 // Decode the version number
 func (m *mk2Ser) versionDecode(frame []byte) {
+	logrus.Debugf("versiondecode %v", frame)
 	m.info.Version = 0
 	m.info.Valid = true
 	for i := 0; i < 4; i++ {
@@ -344,6 +347,7 @@ func (m *mk2Ser) dcDecode(frame []byte) {
 	m.info.BatCurrent = usedC - chargeC
 
 	m.info.OutFrequency = 10 / (m.applyScale(float64(frame[13]), ramVarInverterPeriod))
+	logrus.Debugf("dcDecode %#v", m.info)
 
 	// Send L1 status request
 	cmd := make([]byte, 2)
@@ -364,6 +368,7 @@ func (m *mk2Ser) acDecode(frame []byte) {
 	} else {
 		m.info.InFrequency = 10 / (m.applyScale(float64(frame[13]), ramVarMainPeriod))
 	}
+	logrus.Debugf("acDecode %#v", m.info)
 
 	// Send status request
 	cmd := make([]byte, 1)
@@ -374,6 +379,7 @@ func (m *mk2Ser) acDecode(frame []byte) {
 // Decode charge state of battery.
 func (m *mk2Ser) stateDecode(frame []byte) {
 	m.info.ChargeState = m.applyScaleAndSign(frame[1:3], ramVarChargeState)
+	logrus.Debugf("battery state decode %#v", m.info)
 	m.updateReport()
 }
 
@@ -420,6 +426,7 @@ func (m *mk2Ser) sendCommand(data []byte) {
 	}
 	dataOut[l+2] = cr
 
+	logrus.Debugf("sendCommand %#v", dataOut)
 	_, err := m.p.Write(dataOut)
 	if err != nil {
 		m.addError(fmt.Errorf("Write error: %v", err))
