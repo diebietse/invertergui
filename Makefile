@@ -39,9 +39,6 @@ gofmt:
 	gofmt -l -s -w .
 
 test:
-	go test -v ./...
-
-test-race:
 	go test -v -race ./...
 
 docker:

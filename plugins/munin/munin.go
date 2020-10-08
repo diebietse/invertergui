@@ -44,18 +44,18 @@ var log = logrus.WithField("ctx", "inverter-gui-munin")
 
 type Munin struct {
 	mk2driver.Mk2
-	muninResponse chan *muninData
+	muninResponse chan muninData
 }
 
 type muninData struct {
-	status       *mk2driver.Mk2Info
+	status       mk2driver.Mk2Info
 	timesUpdated int
 }
 
 func NewMunin(mk2 mk2driver.Mk2) *Munin {
 	m := &Munin{
 		Mk2:           mk2,
-		muninResponse: make(chan *muninData),
+		muninResponse: make(chan muninData),
 	}
 
 	go m.run()
@@ -71,10 +71,10 @@ func (m *Munin) ServeMuninHTTP(rw http.ResponseWriter, r *http.Request) {
 		_, _ = rw.Write([]byte("No data to return.\n"))
 		return
 	}
-	calcMuninAverages(muninDat)
+	calcMuninAverages(&muninDat)
 
 	status := muninDat.status
-	tmpInput := buildTemplateInput(status)
+	tmpInput := buildTemplateInput(&status)
 	outputBuf := &bytes.Buffer{}
 	fmt.Fprintf(outputBuf, "multigraph in_batvolt\n")
 	fmt.Fprintf(outputBuf, "volt.value %s\n", tmpInput.BatVoltage)
@@ -113,65 +113,61 @@ func (m *Munin) ServeMuninConfigHTTP(rw http.ResponseWriter, r *http.Request) {
 
 func (m *Munin) run() {
 	muninValues := &muninData{
-		status: &mk2driver.Mk2Info{},
+		status: mk2driver.Mk2Info{},
 	}
 	for {
 		select {
 		case e := <-m.C():
 			if e.Valid {
 				calcMuninValues(muninValues, e)
-
 			}
-		case m.muninResponse <- muninValues:
+		case m.muninResponse <- *muninValues:
 			zeroMuninValues(muninValues)
 		}
 	}
 }
 
 //Munin only samples once every 5 minutes so averages have to be calculated for some values.
-func calcMuninValues(muninDat *muninData, newStatus *mk2driver.Mk2Info) {
-	muninDat.timesUpdated++
-	muninVal := muninDat.status
-	muninVal.OutCurrent += newStatus.OutCurrent
-	muninVal.InCurrent += newStatus.InCurrent
-	muninVal.BatCurrent += newStatus.BatCurrent
+func calcMuninValues(m *muninData, newStatus *mk2driver.Mk2Info) {
+	m.timesUpdated++
+	m.status.OutCurrent += newStatus.OutCurrent
+	m.status.InCurrent += newStatus.InCurrent
+	m.status.BatCurrent += newStatus.BatCurrent
 
-	muninVal.OutVoltage += newStatus.OutVoltage
-	muninVal.InVoltage += newStatus.InVoltage
-	muninVal.BatVoltage += newStatus.BatVoltage
+	m.status.OutVoltage += newStatus.OutVoltage
+	m.status.InVoltage += newStatus.InVoltage
+	m.status.BatVoltage += newStatus.BatVoltage
 
-	muninVal.InFrequency = newStatus.InFrequency
-	muninVal.OutFrequency = newStatus.OutFrequency
+	m.status.InFrequency = newStatus.InFrequency
+	m.status.OutFrequency = newStatus.OutFrequency
 
-	muninVal.ChargeState = newStatus.ChargeState
+	m.status.ChargeState = newStatus.ChargeState
 }
 
-func calcMuninAverages(muninDat *muninData) {
-	muninVal := muninDat.status
-	muninVal.OutCurrent /= float64(muninDat.timesUpdated)
-	muninVal.InCurrent /= float64(muninDat.timesUpdated)
-	muninVal.BatCurrent /= float64(muninDat.timesUpdated)
+func calcMuninAverages(m *muninData) {
+	m.status.OutCurrent /= float64(m.timesUpdated)
+	m.status.InCurrent /= float64(m.timesUpdated)
+	m.status.BatCurrent /= float64(m.timesUpdated)
 
-	muninVal.OutVoltage /= float64(muninDat.timesUpdated)
-	muninVal.InVoltage /= float64(muninDat.timesUpdated)
-	muninVal.BatVoltage /= float64(muninDat.timesUpdated)
+	m.status.OutVoltage /= float64(m.timesUpdated)
+	m.status.InVoltage /= float64(m.timesUpdated)
+	m.status.BatVoltage /= float64(m.timesUpdated)
 }
 
-func zeroMuninValues(muninDat *muninData) {
-	muninDat.timesUpdated = 0
-	muninVal := muninDat.status
-	muninVal.OutCurrent = 0
-	muninVal.InCurrent = 0
-	muninVal.BatCurrent = 0
+func zeroMuninValues(m *muninData) {
+	m.timesUpdated = 0
+	m.status.OutCurrent = 0
+	m.status.InCurrent = 0
+	m.status.BatCurrent = 0
 
-	muninVal.OutVoltage = 0
-	muninVal.InVoltage = 0
-	muninVal.BatVoltage = 0
+	m.status.OutVoltage = 0
+	m.status.InVoltage = 0
+	m.status.BatVoltage = 0
 
-	muninVal.InFrequency = 0
-	muninVal.OutFrequency = 0
+	m.status.InFrequency = 0
+	m.status.OutFrequency = 0
 
-	muninVal.ChargeState = 0
+	m.status.ChargeState = 0
 }
 
 type templateInput struct {
