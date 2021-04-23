@@ -44,9 +44,6 @@ test:
 docker:
 	docker build --tag invertergui .
 
-statik:
-	statik -f -p=frontend -src=./frontend/root
-
 lint:
 	docker run --rm -it \
 		-w /src -v $(shell pwd):/src \

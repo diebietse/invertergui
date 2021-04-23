@@ -1,17 +1,14 @@
 package static
 
 import (
-	"github.com/rakyll/statik/fs"
-
-	"log"
+	"embed"
 	"net/http"
 )
 
-// New exports the static part of the webgui that is served via statik
+//go:embed css js index.html favicon.ico
+var content embed.FS
+
+// New exports the static part of the webgui that is served via embed
 func New() http.Handler {
-	statikFs, err := fs.New()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return http.FileServer(statikFs)
+	return http.FileServer(http.FS(content))
 }
