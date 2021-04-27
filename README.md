@@ -18,7 +18,7 @@ docker run --name invertergui --device /dev/ttyUSB0:/dev/ttyUSB0 -p 8080:8080 di
 
 ## Requirements
 
-This project makes use of [Go Modules](https://github.com/golang/go/wiki/Modules). The minimum version for Go is 1.11.x.
+This project makes use of [Go Modules](https://github.com/golang/go/wiki/Modules). The minimum version for Go is 1.16
 
 ## Getting started
 
