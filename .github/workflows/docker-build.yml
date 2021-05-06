@@ -25,7 +25,10 @@ jobs:
           version: latest
 
       - name: Test
-        run: go test -v -race ./...
+        run: go test -v -race -coverprofile=coverage.txt -covermode=atomic  ./...
+
+      - name: Upload code coverage
+        uses: codecov/codecov-action@v1
 
       - name: Generate docker image labels and tags
         id: docker_meta
