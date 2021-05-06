@@ -1,10 +1,13 @@
 # Inverter GUI
 
-[![Build Status](https://travis-ci.org/diebietse/invertergui.svg?branch=master)](https://travis-ci.org/diebietse/invertergui)
+[![release][release-badge]][release-link]
+[![publish-docker-image][publish-docker-badge]][publish-docker-link]
+![license][license-link]
+[![codecov][codecov-badge]][codecov-link]
 
 The invertergui allows the monitoring of a [Victron Multiplus](https://www.victronenergy.com/inverters-chargers/multiplus-12v-24v-48v-800va-3kva) via the [MK3/MK2 USB](https://www.victronenergy.com/accessories/interface-mk3-usb) or the MK2 RS232.
 
-The [`diebietse/invertergui`](https://hub.docker.com/r/diebietse/invertergui) docker image is a build of this repository.
+The [`ghcr.io/diebietse/invertergui`](https://github.com/orgs/diebietse/packages/container/package/invertergui) docker image is a build of this repository.
 
 ## Demo
 
@@ -13,7 +16,7 @@ The [`diebietse/invertergui`](https://hub.docker.com/r/diebietse/invertergui) do
 ## Quick Start
 
 ```console
-docker run --name invertergui --device /dev/ttyUSB0:/dev/ttyUSB0 -p 8080:8080 diebietse/invertergui
+docker run --name invertergui --device /dev/ttyUSB0:/dev/ttyUSB0 -p 8080:8080 ghcr.io/diebietse/invertergui
 ```
 
 ## Requirements
@@ -350,3 +353,11 @@ The last four lines are optional, but is useful when debugging and logging conne
 This repos includes a [Grafana](https://grafana.com/) dashboard in the [grafana folder](./grafana/prometheus-dashboard.json) that you can import. This is useful if you are using prometheus to log your data and want to display it in a nice way.
 
 ![grafana](https://rawcdn.githack.com/diebietse/invertergui/e20f8fb9161758cd12de95d675aee0ed2e044d8e/grafana/dashboard.png "Grafana Dashboard")
+
+[publish-docker-badge]: https://github.com/diebietse/invertergui/actions/workflows/docker-build.yml/badge.svg
+[publish-docker-link]: https://github.com/diebietse/invertergui/actions/workflows/docker-build.yml
+[license-link]: https://img.shields.io/github/license/diebietse/invertergui.svg
+[release-badge]: https://img.shields.io/github/v/release/diebietse/invertergui
+[release-link]: https://github.com/diebietse/invertergui/releases
+[codecov-badge]: https://codecov.io/gh/diebietse/invertergui/branch/master/graph/badge.svg?token=xTLfEzoqYF
+[codecov-link]: https://codecov.io/gh/diebietse/invertergui

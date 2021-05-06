@@ -1,4 +1,4 @@
-name: inverter-gui-docker-builder
+name: build
 on:
   push:
     branches:
