@@ -1,14 +1,14 @@
-FROM golang:alpine as builder
-RUN apk add git
+FROM golang:1.16-alpine as builder
+
 RUN mkdir /build
 COPY . /build/
 WORKDIR /build
-RUN go build -o invertergui ./cmd/invertergui
-FROM alpine
-RUN adduser -S -D -H -h /app inverteruser
-RUN addgroup inverteruser dialout
-USER inverteruser
-COPY --from=builder /build/invertergui /app/
-WORKDIR /app
-ENTRYPOINT [ "./invertergui" ]
-CMD []
+RUN CGO_ENABLED=0 go build -o invertergui ./cmd/invertergui
+
+FROM scratch
+
+# Group ID 20 is dialout, needed for tty read/write access
+USER 3000:20
+COPY --from=builder /build/invertergui /bin/
+ENTRYPOINT [ "/bin/invertergui" ]
+EXPOSE 8080
