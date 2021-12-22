@@ -37,6 +37,10 @@ func (m *mock) Close() {
 
 }
 
+func (m *mock) SendCommand(data []byte) {
+
+}
+
 func (m *mock) genMockValues() {
 	mult := 1.0
 	ledState := LedOff

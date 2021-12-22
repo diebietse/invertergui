@@ -413,7 +413,15 @@ func getLEDs(ledsOn, ledsBlink byte) map[Led]LEDstate {
 	return leds
 }
 
+
 // Adds header and trailing crc for frame to send.
+// CHARGER ON
+//  07 ff  58 37 01 00 14 81  d5
+//  07 ff  5a 37 01 00 14 81  d3
+
+// CHARGER OFF
+//  07 ff  5a 37 01 00 54 81  93
+//  07 ff  59 37 01 00 54 81  94
 func (m *mk2Ser) sendCommand(data []byte) {
 	l := len(data)
 	dataOut := make([]byte, l+3)
@@ -431,6 +439,10 @@ func (m *mk2Ser) sendCommand(data []byte) {
 	if err != nil {
 		m.addError(fmt.Errorf("Write error: %v", err))
 	}
+}
+
+func (m *mk2Ser) SendCommand(data []byte) {
+	m.sendCommand(data)
 }
 
 // Checks the frame crc.

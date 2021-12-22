@@ -36,6 +36,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"io/ioutil"
 
 	"github.com/diebietse/invertergui/mk2core"
 	"github.com/diebietse/invertergui/mk2driver"
@@ -51,6 +52,14 @@ import (
 )
 
 var log = logrus.WithField("ctx", "inverter-gui")
+
+func makeSetChargerStatePayload(state bool) []byte {
+	var val byte = 0x14
+	if !state {
+		val = 0x54
+	}
+	return []byte{0x58 /* or 0x5a */, 0x37, 0x01, 0x00, val, 0x81}
+}
 
 func main() {
 	conf, err := parseConfig()
@@ -85,6 +94,23 @@ func main() {
 	mu := munin.NewMunin(core.NewSubscription())
 	http.Handle("/munin", http.HandlerFunc(mu.ServeMuninHTTP))
 	http.Handle("/muninconfig", http.HandlerFunc(mu.ServeMuninConfigHTTP))
+	http.Handle("/send", http.HandlerFunc(func (rw http.ResponseWriter, r *http.Request) {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			rw.Write([]byte(fmt.Sprintf(`{"written": 0, "error": "%s"}`, err)))
+		} else {
+			core.SendCommand(body)
+			rw.Write([]byte(fmt.Sprintf(`{"written": %d}`, len(body))))
+		}
+	}))
+	http.Handle("/charger/on", http.HandlerFunc(func (rw http.ResponseWriter, r *http.Request) {
+		core.SendCommand(makeSetChargerStatePayload(true))
+		rw.Write([]byte("OK"))
+	}))
+	http.Handle("/charger/off", http.HandlerFunc(func (rw http.ResponseWriter, r *http.Request) {
+		core.SendCommand(makeSetChargerStatePayload(false))
+		rw.Write([]byte("OK"))
+	}))
 
 	// Prometheus
 	prometheus.NewPrometheus(core.NewSubscription())

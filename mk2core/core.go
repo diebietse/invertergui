@@ -52,6 +52,12 @@ func (s *subscription) C() chan *mk2driver.Mk2Info {
 	return s.send
 }
 
+
+func (s *subscription) SendCommand(data []byte) {
+
+}
+
+
 func (s *subscription) Close() {
 	close(s.send)
 }

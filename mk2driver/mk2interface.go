@@ -75,4 +75,5 @@ type Mk2Info struct {
 type Mk2 interface {
 	C() chan *Mk2Info
 	Close()
+	SendCommand(data []byte)
 }
