@@ -49,7 +49,7 @@ const (
 	acL1InfoFrame  = 0x08
 	dcInfoFrame    = 0x0C
 	setTargetFrame = 0x41
-	infoReqFrame   = 0x46
+	infoReqFrame   = 0x46 //F
 	ledFrame       = 0x4C
 	vFrame         = 0x56
 	winmonFrame    = 0x57
@@ -358,10 +358,10 @@ func (m *mk2Ser) dcDecode(frame []byte) {
 
 // Decodes AC frame.
 func (m *mk2Ser) acDecode(frame []byte) {
-	m.info.InVoltage = m.applyScaleAndSign(frame[5:7], ramVarVMains)
-	m.info.InCurrent = m.applyScaleAndSign(frame[7:9], ramVarIMains)
-	m.info.OutVoltage = m.applyScaleAndSign(frame[9:11], ramVarVInverter)
-	m.info.OutCurrent = m.applyScaleAndSign(frame[11:13], ramVarIInverter)
+	m.info.InVoltage = m.applyScale(getSigned(frame[5:7]), ramVarVMains)
+	m.info.InCurrent = m.applyScale(getSigned(frame[7:9]), ramVarIMains)
+	m.info.OutVoltage = m.applyScale(getSigned(frame[9:11]), ramVarVInverter)
+	m.info.OutCurrent = m.applyScale(getSigned(frame[11:13]), ramVarIInverter)
 
 	if frame[13] == 0xff {
 		m.info.InFrequency = 0
