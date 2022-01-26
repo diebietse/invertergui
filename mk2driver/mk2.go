@@ -346,7 +346,7 @@ func (m *mk2Ser) dcDecode(frame []byte) {
 	chargeC := m.applyScale(getUnsigned(frame[10:13]), ramVarIBat)
 	m.info.BatCurrent = usedC - chargeC
 
-	m.info.OutFrequency = 10 / (m.applyScale(float64(frame[13]), ramVarInverterPeriod))
+	m.info.OutFrequency = m.calcFreq(frame[13], ramVarInverterPeriod)
 	logrus.Debugf("dcDecode %#v", m.info)
 
 	// Send L1 status request
@@ -362,18 +362,21 @@ func (m *mk2Ser) acDecode(frame []byte) {
 	m.info.InCurrent = m.applyScale(getSigned(frame[7:9]), ramVarIMains)
 	m.info.OutVoltage = m.applyScale(getSigned(frame[9:11]), ramVarVInverter)
 	m.info.OutCurrent = m.applyScale(getSigned(frame[11:13]), ramVarIInverter)
+	m.info.InFrequency = m.calcFreq(frame[13], ramVarMainPeriod)
 
-	if frame[13] == 0xff {
-		m.info.InFrequency = 0
-	} else {
-		m.info.InFrequency = 10 / (m.applyScale(float64(frame[13]), ramVarMainPeriod))
-	}
 	logrus.Debugf("acDecode %#v", m.info)
 
 	// Send status request
 	cmd := make([]byte, 1)
 	cmd[0] = ledFrame
 	m.sendCommand(cmd)
+}
+
+func (m *mk2Ser) calcFreq(data byte, scaleIndex int) float64 {
+	if data == 0xff || data == 0x00 {
+		return 0
+	}
+	return 10 / (m.applyScale(float64(data), scaleIndex))
 }
 
 // Decode charge state of battery.
