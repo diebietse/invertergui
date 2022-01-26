@@ -249,3 +249,63 @@ func Test_mk2Ser_scaleDecode(t *testing.T) {
 		})
 	}
 }
+
+func Test_mk2Ser_calcFreq(t *testing.T) {
+	tests := []struct {
+		name       string
+		scales     []scaling
+		data       byte
+		scaleIndex int
+		want       float64
+	}{
+		{
+			name: "Calculate working low",
+			scales: []scaling{
+				{supported: false},
+			},
+			data:       0x01,
+			scaleIndex: 0,
+			want:       10,
+		},
+		{
+			name: "Calculate working high",
+			scales: []scaling{
+				{
+					supported: true,
+					offset:    0,
+					scale:     0.01,
+				},
+			},
+			data:       0xFE,
+			scaleIndex: 0,
+			want:       3.937007874015748,
+		},
+		{
+			name: "Calculate clip high",
+			scales: []scaling{
+				{supported: false},
+			},
+			data:       0xff,
+			scaleIndex: 0,
+			want:       0,
+		},
+		{
+			name: "Calculate clip low",
+			scales: []scaling{
+				{supported: false},
+			},
+			data:       0x00,
+			scaleIndex: 0,
+			want:       0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &mk2Ser{
+				scales: tt.scales,
+			}
+			got := m.calcFreq(tt.data, tt.scaleIndex)
+			assert.InDelta(t, tt.want, got, testDelta)
+		})
+	}
+}
