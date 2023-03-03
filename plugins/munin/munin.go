@@ -127,7 +127,7 @@ func (m *Munin) run() {
 	}
 }
 
-//Munin only samples once every 5 minutes so averages have to be calculated for some values.
+// Munin only samples once every 5 minutes so averages have to be calculated for some values.
 func calcMuninValues(m *muninData, newStatus *mk2driver.Mk2Info) {
 	m.timesUpdated++
 	m.status.OutCurrent += newStatus.OutCurrent
