@@ -4,23 +4,16 @@ run:
 linters:
   enable-all: false
   enable:
-    # Enabled by default in golangci-lint v1.13.2
-    - deadcode
     - errcheck
     - govet
     - ineffassign
     - typecheck
-    - varcheck
-    # Disabled by default in golangci-lint v1.13.2
     - dupl
     - goconst
     - gofmt
-    - golint
     - unconvert
-    # The following result in high memory usage (>1GB)
-    # https://github.com/golangci/golangci-lint/issues/337
+    - revive
     - staticcheck
-    - structcheck
     - gosimple
     - unused
 
