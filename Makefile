@@ -56,3 +56,7 @@ clean:
 vendor:
 	go mod tidy
 	go mod vendor
+
+.PHONY: upgrade-vendor
+upgrade-vendor:
+	go get -u ./...
