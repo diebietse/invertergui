@@ -1,6 +1,6 @@
 module github.com/diebietse/invertergui
 
-go 1.20
+go 1.22
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.4.2
