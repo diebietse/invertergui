@@ -63,7 +63,7 @@ func NewMunin(mk2 mk2driver.Mk2) *Munin {
 	return m
 }
 
-func (m *Munin) ServeMuninHTTP(rw http.ResponseWriter, r *http.Request) {
+func (m *Munin) ServeMuninHTTP(rw http.ResponseWriter, _ *http.Request) {
 	muninDat := <-m.muninResponse
 	if muninDat.timesUpdated == 0 {
 		log.Error("No data returned")
@@ -103,7 +103,7 @@ func (m *Munin) ServeMuninHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (m *Munin) ServeMuninConfigHTTP(rw http.ResponseWriter, r *http.Request) {
+func (m *Munin) ServeMuninConfigHTTP(rw http.ResponseWriter, _ *http.Request) {
 	output := muninConfig
 	_, err := rw.Write([]byte(output))
 	if err != nil {
