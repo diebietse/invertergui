@@ -47,7 +47,7 @@ docker:
 lint:
 	docker run --rm -it \
 		-w /src -v $(shell pwd):/src \
-		golangci/golangci-lint:v1.51 golangci-lint run \
+		golangci/golangci-lint:v1.56 golangci-lint run \
 		-v -c .golangci.yml
 
 clean:
@@ -56,3 +56,7 @@ clean:
 vendor:
 	go mod tidy
 	go mod vendor
+
+.PHONY: upgrade-vendor
+upgrade-vendor:
+	go get -u ./...

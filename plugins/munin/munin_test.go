@@ -9,7 +9,7 @@ import (
 	"github.com/diebietse/invertergui/mk2driver"
 )
 
-func TestServer(t *testing.T) {
+func TestServer(_ *testing.T) {
 
 	mockMk2 := mk2driver.NewMk2Mock()
 	muninServer := NewMunin(mockMk2)

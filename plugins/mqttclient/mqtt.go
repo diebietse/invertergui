@@ -65,7 +65,7 @@ func getOpts(config Config) *mqtt.ClientOptions {
 	opts.SetOnConnectHandler(func(mqtt.Client) {
 		log.Info("Client connected to broker")
 	})
-	opts.SetConnectionLostHandler(func(cli mqtt.Client, err error) {
+	opts.SetConnectionLostHandler(func(_ mqtt.Client, err error) {
 		log.Errorf("Client connection to broker lost: %v", err)
 
 	})
