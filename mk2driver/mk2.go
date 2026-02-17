@@ -41,8 +41,9 @@ const (
 )
 
 const (
-	infoFrameHeader = 0x20
-	frameHeader     = 0xff
+	infoFrameHeader   = 0x20
+	frameHeader       = 0xff
+	bootupFrameHeader = 0x0
 )
 
 const (
@@ -164,6 +165,7 @@ func (m *mk2Ser) readByte() byte {
 
 // Adds error to error slice.
 func (m *mk2Ser) addError(err error) {
+	logrus.Errorf("Mk2 serial slice error: %q", err.Error())
 	if m.info.Errors == nil {
 		m.info.Errors = make([]error, 0)
 	}
@@ -183,9 +185,11 @@ func (m *mk2Ser) updateReport() {
 
 // Checks for valid frame and chooses decoding.
 func (m *mk2Ser) handleFrame(l byte, frame []byte) {
-	logrus.Debugf("frame %#v", frame)
+	logrus.Debugf("[handleFrame] frame %#v", frame)
 	if checkChecksum(l, frame[0], frame[1:]) {
 		switch frame[0] {
+		case bootupFrameHeader:
+			m.setTarget()
 		case frameHeader:
 			switch frame[1] {
 			case vFrame:
@@ -196,10 +200,14 @@ func (m *mk2Ser) handleFrame(l byte, frame []byte) {
 					m.scaleDecode(frame[2:])
 				case commandReadRAMResponse:
 					m.stateDecode(frame[2:])
+				default:
+					logrus.Warnf("[handleFrame] invalid winmonFrame %v", frame[2:])
 				}
 
 			case ledFrame:
 				m.ledDecode(frame[2:])
+			default:
+				logrus.Warnf("[handleFrame] invalid frameHeader %v", frame[1])
 			}
 
 		case infoFrameHeader:
@@ -208,10 +216,14 @@ func (m *mk2Ser) handleFrame(l byte, frame []byte) {
 				m.dcDecode(frame[1:])
 			case acL1InfoFrame:
 				m.acDecode(frame[1:])
+			default:
+				logrus.Warnf("[handleFrame] invalid infoFrameHeader %v", frame[5])
 			}
+		default:
+			logrus.Warnf("[handleFrame] Invalid frame %v", frame[0])
 		}
 	} else {
-		logrus.Errorf("Invalid incoming frame checksum: %x", frame)
+		logrus.Errorf("[handleFrame] Invalid incoming frame checksum: %x", frame)
 		m.frameLock = false
 	}
 }
